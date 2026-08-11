@@ -36,15 +36,25 @@ Lambda (nodejs20.x, one function per operation)
 DynamoDB (4 tables, on-demand billing)
 ```
 
-- **Frontend** — a single static HTML file (`frontend/index.html`), no
-  build step, styled with [Pico.css](https://picocss.com/) from a CDN.
-  Hosted on S3, fronted by CloudFront via Origin Access Control (OAC) —
-  the bucket itself has Block Public Access fully on and a policy scoped
-  to only this CloudFront distribution's ARN, not `Principal: *`. (An
-  earlier version served straight off the S3 website endpoint with a
-  public-read bucket policy; that was replaced once CloudFront went in.)
-  A custom domain is a possible future step, deferred since it requires
-  actually owning a registered domain.
+- **Frontend** — React + TypeScript + Vite (see [`frontend/README.md`](frontend/README.md)),
+  built with TanStack Query for `GET /league-table` and the two write
+  mutations, Tailwind for the design system, and direct-`fetch` Cognito
+  auth (no Amplify). Deliberately **no router** — the three screens
+  (League Table / Add Player / Log Match) are tabs, not deep-linkable
+  pages, so a real router's need for CloudFront SPA-fallback config
+  (403/404 → `/index.html`) never came up. The homepage is
+  phase-aware — before/during/after the tournament, purely date-driven
+  off env vars, since there's no backend concept of "tournament state" —
+  showing a countdown before the event, live standings during, and a
+  champion banner after (`table[0]` off the already-sorted league table,
+  no extra endpoint needed). Hosted on S3, fronted by CloudFront via
+  Origin Access Control (OAC) — the bucket itself has Block Public
+  Access fully on and a policy scoped to only this CloudFront
+  distribution's ARN, not `Principal: *`. (Two earlier versions existed:
+  a single static HTML file with no build step, then briefly served
+  straight off the S3 website endpoint with a public-read bucket policy
+  — both replaced.) A custom domain is a possible future step, deferred
+  since it requires actually owning a registered domain.
 - **API** — API Gateway REST API, Lambda proxy integration, one Lambda
   per operation rather than one monolithic handler.
 - **Compute** — Lambda, deliberately kept out of a VPC. DynamoDB is
@@ -92,7 +102,7 @@ Base URL: `https://ecoayq3mq0.execute-api.eu-west-2.amazonaws.com/prod`
 |---|---|---|---|
 | `POST` | `/players` | `sports-day-addPlayer` | |
 | `POST` | `/teams` | `sports-day-createTeam` | Also how a team's `name` gets updated — same `teamId`, new `name`. |
-| `POST` | `/matches` | `sports-day-submitMatchScore` | |
+| `POST` | `/matches` | `sports-day-submitMatchScore` | Takes `teamARuns`/`teamAHomeRuns`/`teamAOuts` (+ the `teamB*` equivalents), not a pre-totalled score — captains log what happened in the match, the Lambda computes `teamAScore`/`teamBScore` server-side (1pt/run, 2pt/home run; outs are a tracked stat only, no scoring effect). |
 | `GET` | `/league-table` | `sports-day-getLeagueTable` | Scans `Team` + `Match`, computes played/won/drawn/lost/points/run-difference per team. 2 points for a win, 1 for a draw, 0 for a loss; ties broken by run difference. |
 
 CORS is enabled (`Access-Control-Allow-Origin: *`) so the static frontend
@@ -104,13 +114,15 @@ real method.
 
 `POST /players`, `POST /teams`, and `POST /matches` require a valid
 Cognito ID token (via an API Gateway `COGNITO_USER_POOLS` authorizer);
-`GET /league-table` stays public. Captains log in through a form built
-into `frontend/index.html`, which calls Cognito's `InitiateAuth` API
-directly over `fetch` (`USER_PASSWORD_AUTH` flow) — no Amplify or SDK
-bundle needed, keeping the frontend dependency-free. The resulting ID
-token is stored in `sessionStorage` and sent as a raw `Authorization`
-header (no `Bearer` prefix — that's specifically what the API Gateway
-Cognito authorizer expects) on write requests.
+`GET /league-table` stays public. Captains log in through a form in the
+React app, which calls Cognito's `InitiateAuth` API directly over
+`fetch` (`USER_PASSWORD_AUTH` flow) — no Amplify or SDK bundle needed.
+The resulting ID token is stored in `sessionStorage` and sent as a raw
+`Authorization` header (no `Bearer` prefix — that's specifically what
+the API Gateway Cognito authorizer expects) on write requests. The Add
+Player / Log Match nav items themselves are hidden entirely until
+logged in — they're captain-only tasks, not something to dangle in
+front of everyone browsing the public league table.
 
 User pool: email as username, MFA optional (TOTP only — SMS MFA was
 deliberately left off to avoid per-message SNS cost), admin-created users
@@ -138,9 +150,14 @@ no CDK/SAM/Terraform.
 
 [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) runs on
 every push to `main` that touches `cloudformation/`, `lambda/`, or
-`frontend/`: it packages and deploys the CloudFormation stack, uploads
-`frontend/index.html` to the site bucket, and invalidates the CloudFront
-cache. No manual `aws` commands needed for routine changes anymore.
+`frontend/`: packages and deploys the CloudFormation stack, forces a
+fresh API Gateway stage deployment (see the debugging note below),
+builds the React app (`npm ci && npm run build`) and syncs `frontend/dist`
+to the site bucket with `--delete` (Vite's JS/CSS filenames are
+content-hashed per build, so without `--delete` every past build's
+assets would just accumulate in the bucket forever), then invalidates
+the CloudFront cache. No manual `aws` commands needed for routine
+changes anymore.
 
 Authentication uses **OIDC federation**, not stored AWS credentials: an
 IAM OIDC identity provider trusts `token.actions.githubusercontent.com`,
@@ -174,8 +191,29 @@ stale trust policy can't be hijacked by renaming a different repo to
 match it. Fixed by updating the trust policy to the exact value
 CloudTrail showed.
 
+**Second debugging note:** while building the React frontend's real
+Add Player flow, every authenticated write request failed in the
+browser with a CORS error — `curl` never caught this, since curl
+doesn't enforce CORS, so it went undetected through all the earlier
+curl-based API verification. Root cause: the API's CORS preflight
+response only ever allowlisted `Content-Type` in
+`Access-Control-Allow-Headers`, never `Authorization` — a gap left over
+from before Cognito auth existed. Fixing the CloudFormation template and
+redeploying wasn't enough on its own, either: CloudFormation doesn't
+create a fresh `AWS::ApiGateway::Deployment` just because an underlying
+`Method`/`Integration` changed, so the stack update succeeded but the
+live `prod` stage kept serving the *old* CORS headers until a manual
+`aws apigateway create-deployment` forced it to pick up the change.
+Fixed for good by adding an `ApiId` output to the template and a step in
+`deploy.yml` that forces a fresh stage deployment after every
+`cloudformation deploy`, so no future route change can hit this same
+silent-staleness bug again.
+
 ## What's not built yet
 
-See [PLAN.md](PLAN.md#next-steps) for the current list — roughly:
-a custom domain (needs a registered domain, deferred), and a real
-styling pass on the frontend.
+See [PLAN.md](PLAN.md#next-steps) for the current list — roughly: a
+custom domain (needs a registered domain, deferred), and Phase 4 of the
+frontend (match history, a tournament bracket, player statistics, a
+multi-year archive) — all blocked on backend work that doesn't exist
+yet (there's no `GET /matches` or `GET /players`, and no season/year
+dimension in the data model for an archive).

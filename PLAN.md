@@ -358,12 +358,30 @@ X for a given Y" queries, since there are no JOINs — e.g. a GSI on
   submit flow (stepper input → correct server-computed score) live
   against the real API.
 
+- `frontend-new/` merged into `frontend/`, replacing the vanilla JS app
+  for real — the React/Vite app is now what's actually live.
+  `.github/workflows/deploy.yml` updated: `actions/setup-node` (Node 22,
+  npm cache keyed on `frontend/package-lock.json`) → `npm ci && npm run
+  build` in `frontend/` → `aws s3 sync frontend/dist s3://... --delete`
+  (replacing the old single `aws s3 cp frontend/index.html`; `--delete`
+  matters now because Vite's JS/CSS filenames are content-hashed, so
+  without it every past build's assets would accumulate in the bucket
+  forever) → the existing CloudFront invalidation step, unchanged.
+  `frontend/.env.production` committed with the real config (API URL,
+  Cognito client ID, tournament name/date) — none of these are secret
+  (the Cognito client ID and API URL are public by design for a
+  browser-side app; there's only one deploy environment, so there's
+  nothing to template per-environment), so committing them directly is
+  simpler than having CI generate the file from repo/environment
+  secrets for no real security benefit. `frontend/.env.local` (dev-only,
+  same values) stays git-ignored by convention even though it isn't
+  sensitive either. Verified: local build correctly picks up
+  `.env.production`'s values (checked the API URL is actually present in
+  the built JS bundle), and the live CI-deployed site works end-to-end.
+
 ## Next steps
 - Once captains are chosen, update each team's `name` (same `teamId`,
   new `name`, via `POST /teams`)
-- Merge `frontend-new/` into `frontend/`, update
-  `.github/workflows/deploy.yml` to build the Vite app (`npm ci && npm
-  run build`) and sync `dist/` instead of a single HTML file
 - Custom domain (Route 53 + ACM cert) in front of the CloudFront
   distribution, once a domain is registered
 - Now that CI/CD invalidates the CloudFront cache on every deploy, revisit
