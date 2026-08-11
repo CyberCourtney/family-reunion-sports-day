@@ -11,7 +11,12 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  id-token: write # required to request the OIDC token
+  # required to request the OIDC token used by aws-actions/configure-aws-credentials.
+  # note: a brand-new IAM OIDC provider/role can take a few minutes to
+  # propagate before AssumeRoleWithWebIdentity actually honors it, even
+  # with a correct trust policy - the first run here failed for exactly
+  # that reason (retrying after the propagation delay is the fix).
+  id-token: write
   contents: read
 
 env:
