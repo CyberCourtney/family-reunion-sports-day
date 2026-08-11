@@ -53,6 +53,9 @@ DynamoDB (4 tables, on-demand billing)
     granting read/write on exactly the four project tables and their
     indexes — not account-wide DynamoDB access. Least privilege for the
     thing that's actually internet-facing.
+- **Auth** — Amazon Cognito user pool for captains (see below), plus an
+  AWS Budget alarm ($5/month, email at 80% actual / 100% forecasted) as a
+  cheap independent safety net against unexpected cost.
 
 ## Data model (DynamoDB)
 
@@ -83,15 +86,31 @@ can call the API directly from the browser — each resource has an
 `OPTIONS` mock integration handling the preflight request, on top of the
 real method.
 
-**No auth yet.** Every route above is currently public. Cognito login for
-captains — and locking the three `POST` routes down to authenticated
-users while keeping `GET /league-table` public — is the next planned
-step.
+## Auth
+
+`POST /players`, `POST /teams`, and `POST /matches` require a valid
+Cognito ID token (via an API Gateway `COGNITO_USER_POOLS` authorizer);
+`GET /league-table` stays public. Captains log in through a form built
+into `frontend/index.html`, which calls Cognito's `InitiateAuth` API
+directly over `fetch` (`USER_PASSWORD_AUTH` flow) — no Amplify or SDK
+bundle needed, keeping the frontend dependency-free. The resulting ID
+token is stored in `sessionStorage` and sent as a raw `Authorization`
+header (no `Bearer` prefix — that's specifically what the API Gateway
+Cognito authorizer expects) on write requests.
+
+User pool: email as username, MFA optional (TOTP only — SMS MFA was
+deliberately left off to avoid per-message SNS cost), admin-created users
+only (self-signup disabled, invite-only). New captains are added with:
+
+```
+aws cognito-idp admin-create-user --user-pool-id eu-west-2_cKMOlcy34 --username <email> ...
+aws cognito-idp admin-set-user-password --user-pool-id eu-west-2_cKMOlcy34 --username <email> --password <temp-password> --permanent
+```
 
 ## What's not built yet
 
-See [PLAN.md](PLAN.md#next-steps) for the current list — roughly: Cognito
-auth, CloudFront + custom domain, infrastructure as code (CDK/SAM/
-Terraform) and CI/CD via GitHub Actions to replace the manual
-`aws s3 cp` / `aws lambda update-function-code` deploys used to build
-this so far, and a real styling pass on the frontend.
+See [PLAN.md](PLAN.md#next-steps) for the current list — roughly:
+CloudFront + custom domain, infrastructure as code (CDK/SAM/Terraform)
+and CI/CD via GitHub Actions to replace the manual `aws s3 cp` /
+`aws lambda update-function-code` deploys used to build this so far, and
+a real styling pass on the frontend.

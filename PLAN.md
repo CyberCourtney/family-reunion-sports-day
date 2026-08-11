@@ -149,9 +149,43 @@ X for a given Y" queries, since there are no JOINs — e.g. a GSI on
   Verified working end-to-end from the real hosted origin (not just
   `file://`) — league table correctly loads all 4 real teams via the API.
 
+- AWS Budget alarm created (`family-reunion-sports-day-monthly`, $5/month,
+  emails on 80% actual / 100% forecasted spend) — cheap safety net against
+  unexpected cost from the public write routes, independent of the auth
+  work below.
+- "Add Team" removed from the frontend UI — the 4 teams are fixed, no need
+  to create more. `createTeam.js` / `POST /teams` kept as-is; it's still
+  how a team's `name` gets updated later (same `teamId`, new `name`,
+  `PutItem` overwrites in place).
+- Cognito auth added for captains:
+  - User pool `sports-day-captains` (`eu-west-2_cKMOlcy34`): email as
+    username, password policy (min 10 chars, upper/lower/number/symbol),
+    MFA optional (TOTP only, no SMS — avoids SNS cost), admin-created
+    users only (self-signup disabled — invite-only, reduces public attack
+    surface).
+  - App client `sports-day-frontend` (`4l7f4gtg0aovgtns71nv1ppejs`):
+    public client (no secret), `ALLOW_USER_PASSWORD_AUTH` — lets the
+    static frontend call Cognito's `InitiateAuth` directly via `fetch`
+    with no SDK/build step, consistent with the rest of the frontend.
+  - API Gateway authorizer `sports-day-cognito-authorizer`
+    (COGNITO_USER_POOLS) attached to `POST /players`, `/teams`, `/matches`.
+    `GET /league-table` deliberately left public.
+  - Frontend: login bar (email/password → Cognito `InitiateAuth`), ID
+    token stored in `sessionStorage`, sent as a raw `Authorization` header
+    (no `Bearer` prefix — that's what the API Gateway Cognito authorizer
+    expects) on write requests. Add Player / Submit Match forms are
+    hidden behind a "must be logged in" notice until authenticated. 401/
+    403 responses clear the session and prompt re-login.
+  - One real captain account created (`courtney@cybercourtney.uk`) via
+    `admin-create-user` + `admin-set-user-password --permanent`. More
+    captains: same two commands with their email.
+  - Tested end-to-end: no token → 401; valid token → 201; public route
+    unaffected; full login → add player → logout flow verified live in
+    browser, against both `file://` and the real S3-hosted site.
+
 ## Next steps
 - Once captains are chosen, update each team's `name` (same `teamId`,
-  new `name`, via `POST /teams` or the Add Team form)
+  new `name`, via `POST /teams`)
 - Cognito login for captains, then lock down the write routes
   (POST /players, /teams, /matches) to authenticated captains
 - CloudFront + custom domain (also tightens the bucket from public-read
