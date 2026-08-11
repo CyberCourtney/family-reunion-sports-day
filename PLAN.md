@@ -260,11 +260,27 @@ X for a given Y" queries, since there are no JOINs — e.g. a GSI on
   - Auth: OIDC federation, not stored credentials. Created an IAM OIDC
     identity provider for `token.actions.githubusercontent.com`
     (account-wide, first one — reusable by future projects), and an IAM
-    role `sports-day-github-actions-deploy` whose trust policy uses a
-    `StringLike` condition on the `sub` claim restricted to
-    `repo:CyberCourtney/family-reunion-sports-day:ref:refs/heads/main` —
-    only workflow runs on this exact repo's `main` branch can assume it.
-    No AWS access keys stored in GitHub Secrets at all.
+    role `sports-day-github-actions-deploy` whose trust policy restricts
+    `sts:AssumeRoleWithWebIdentity` via a `StringLike` condition on the
+    token's `sub` claim to this exact repo's `main` branch. No AWS access
+    keys stored in GitHub Secrets at all.
+  - **Debugging note, worth keeping:** the first two runs both failed with
+    `Not authorized to perform sts:AssumeRoleWithWebIdentity`, even though
+    the trust policy, OIDC provider, and workflow config all looked
+    correct on paper. First guess (wrong) was IAM propagation delay for a
+    brand-new OIDC provider/role. Root-caused via
+    `aws cloudtrail lookup-events --lookup-attributes
+    AttributeKey=EventName,AttributeValue=AssumeRoleWithWebIdentity` —
+    CloudTrail's `Username` field on the failed calls showed the *actual*
+    `sub` claim GitHub was sending:
+    `repo:CyberCourtney@187710470/family-reunion-sports-day@1331044533:ref:refs/heads/main`,
+    not the plain `repo:CyberCourtney/family-reunion-sports-day:ref:...`
+    the trust policy expected. GitHub embeds immutable numeric IDs after
+    the owner/repo name in the `sub` claim whenever the org or repo has
+    ever been renamed — a deliberate anti-spoofing measure so a stale
+    trust policy can't be hijacked by renaming a different repo to match
+    it. Fixed by updating the trust policy's `sub` condition to the exact
+    value CloudTrail showed. Third run succeeded.
   - Deploy role permissions scoped by resource ARN wherever the resource
     name is under this project's control (the 4 DynamoDB tables, the 4
     Lambda functions, the `sports-day-lambda-role` execution role, the

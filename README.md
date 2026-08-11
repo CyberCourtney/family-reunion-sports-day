@@ -160,6 +160,20 @@ services either assign resource IDs at creation time (so nothing to scope
 to on a from-scratch deploy) or don't support fine-grained resource-level
 permissions on their management APIs in the first place.
 
+**Debugging note:** the first two workflow runs both failed with `Not
+authorized to perform sts:AssumeRoleWithWebIdentity`, despite the trust
+policy, OIDC provider, and workflow all looking correct. Root-caused with
+`aws cloudtrail lookup-events --lookup-attributes
+AttributeKey=EventName,AttributeValue=AssumeRoleWithWebIdentity` — the
+`Username` field on the failed calls showed the *actual* `sub` claim
+GitHub was sending included immutable numeric IDs after the owner/repo
+name (`repo:OWNER@ownerId/REPO@repoId:ref:...`), not the plain
+`repo:OWNER/REPO:ref:...` the trust policy expected. GitHub adds those
+IDs whenever an org or repo has ever been renamed, specifically so a
+stale trust policy can't be hijacked by renaming a different repo to
+match it. Fixed by updating the trust policy to the exact value
+CloudTrail showed.
+
 ## What's not built yet
 
 See [PLAN.md](PLAN.md#next-steps) for the current list — roughly:
