@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Family Reunion Sports Day</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+</head>
+<body>
+  <main class="container">
+    <h1>Family Reunion Sports Day</h1>
+
+    <nav>
+      <ul>
+        <li><a href="#" data-view="league-table" aria-current="page">League Table</a></li>
+        <li><a href="#" data-view="add-player">Add Player</a></li>
+        <li><a href="#" data-view="submit-match">Submit Match</a></li>
+      </ul>
+    </nav>
+
+    <section id="view-league-table">
+      <h2>League Table</h2>
+      <button id="refresh-table">Refresh</button>
+      <table>
+        <thead>
+          <tr>
+            <th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th>
+            <th>For</th><th>Against</th><th>Diff</th><th>Pts</th>
+          </tr>
+        </thead>
+        <tbody id="league-table-body">
+          <tr><td colspan="9">Loading…</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="view-add-player" hidden>
+      <h2>Add Player</h2>
+      <form id="add-player-form">
+        <label>Name
+          <input type="text" name="name" required>
+        </label>
+        <label>Team
+          <select name="teamId" required>
+            <option value="">Select a team…</option>
+          </select>
+        </label>
+        <label>Position
+          <input type="text" name="position" placeholder="optional">
+        </label>
+        <button type="submit">Add Player</button>
+      </form>
+      <p id="add-player-status"></p>
+    </section>
+
+    <section id="view-submit-match" hidden>
+      <h2>Submit Match Score</h2>
+      <form id="submit-match-form">
+        <label>Round
+          <input type="text" name="round" placeholder="e.g. semi-final, final" required>
+        </label>
+        <label>Team A
+          <select name="teamAId" required>
+            <option value="">Select a team…</option>
+          </select>
+        </label>
+        <label>Team A Score
+          <input type="number" name="teamAScore" min="0" required>
+        </label>
+        <label>Team B
+          <select name="teamBId" required>
+            <option value="">Select a team…</option>
+          </select>
+        </label>
+        <label>Team B Score
+          <input type="number" name="teamBScore" min="0" required>
+        </label>
+        <button type="submit">Submit Match</button>
+      </form>
+      <p id="submit-match-status"></p>
+    </section>
+  </main>
+
+  <script>
+    const API_BASE = "https://9yfy3j62g1.execute-api.eu-west-2.amazonaws.com/prod";
+
+    // --- view switching ---
+    const views = ["league-table", "add-player", "submit-match"];
+    document.querySelectorAll("nav a[data-view]").forEach((link) => {
+      link.addEventListener("click", (e) => {
+        e.preventDefault();
+        showView(link.dataset.view);
+      });
+    });
+
+    function showView(name) {
+      views.forEach((v) => {
+        document.getElementById(`view-${v}`).hidden = v !== name;
+      });
+      document.querySelectorAll("nav a[data-view]").forEach((link) => {
+        if (link.dataset.view === name) {
+          link.setAttribute("aria-current", "page");
+        } else {
+          link.removeAttribute("aria-current");
+        }
+      });
+      if (name === "league-table") loadLeagueTable();
+      if (name === "add-player" || name === "submit-match") loadTeamOptions();
+    }
+
+    // --- league table ---
+    async function loadLeagueTable() {
+      const tbody = document.getElementById("league-table-body");
+      tbody.innerHTML = "<tr><td colspan=\"9\">Loading…</td></tr>";
+      try {
+        const res = await fetch(`${API_BASE}/league-table`);
+        const data = await res.json();
+        if (!data.table || data.table.length === 0) {
+          tbody.innerHTML = "<tr><td colspan=\"9\">No teams yet.</td></tr>";
+          return;
+        }
+        tbody.innerHTML = data.table
+          .map(
+            (t) => `<tr>
+              <td>${escapeHtml(t.name)}</td>
+              <td>${t.played}</td><td>${t.won}</td><td>${t.drawn}</td><td>${t.lost}</td>
+              <td>${t.runsFor}</td><td>${t.runsAgainst}</td><td>${t.runDifference}</td>
+              <td>${t.points}</td>
+            </tr>`
+          )
+          .join("");
+      } catch (err) {
+        tbody.innerHTML = "<tr><td colspan=\"9\">Failed to load league table.</td></tr>";
+        console.error(err);
+      }
+    }
+    document.getElementById("refresh-table").addEventListener("click", loadLeagueTable);
+
+    // --- shared team dropdowns ---
+    async function loadTeamOptions() {
+      try {
+        const res = await fetch(`${API_BASE}/league-table`);
+        const data = await res.json();
+        const teams = data.table || [];
+        document.querySelectorAll('select[name="teamId"], select[name="teamAId"], select[name="teamBId"]').forEach((select) => {
+          const current = select.value;
+          select.innerHTML = '<option value="">Select a team…</option>' +
+            teams.map((t) => `<option value="${escapeHtml(t.teamId)}">${escapeHtml(t.name)}</option>`).join("");
+          select.value = current;
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // --- add player ---
+    document.getElementById("add-player-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const status = document.getElementById("add-player-status");
+      const body = {
+        name: form.name.value,
+        teamId: form.teamId.value,
+        position: form.position.value || undefined,
+      };
+      status.textContent = "Saving…";
+      try {
+        const res = await fetch(`${API_BASE}/players`, {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          status.textContent = `Added player "${data.name}".`;
+          form.reset();
+        } else {
+          status.textContent = `Error: ${data.error || "failed to add player"}`;
+        }
+      } catch (err) {
+        status.textContent = "Error: could not reach the API.";
+        console.error(err);
+      }
+    });
+
+    // --- submit match ---
+    document.getElementById("submit-match-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const status = document.getElementById("submit-match-status");
+      const body = {
+        round: form.round.value,
+        teamAId: form.teamAId.value,
+        teamBId: form.teamBId.value,
+        teamAScore: Number(form.teamAScore.value),
+        teamBScore: Number(form.teamBScore.value),
+      };
+      status.textContent = "Saving…";
+      try {
+        const res = await fetch(`${API_BASE}/matches`, {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          status.textContent = "Match result saved.";
+          form.reset();
+        } else {
+          status.textContent = `Error: ${data.error || "failed to submit match"}`;
+        }
+      } catch (err) {
+        status.textContent = "Error: could not reach the API.";
+        console.error(err);
+      }
+    });
+
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str ?? "";
+      return div.innerHTML;
+    }
+
+    // initial load
+    loadLeagueTable();
+  </script>
+</body>
+</html>

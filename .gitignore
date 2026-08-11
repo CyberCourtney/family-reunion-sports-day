@@ -1,0 +1,8 @@
+# Lambda build artifacts (regenerated from the .js source via zip)
+lambda/*.zip
+
+# Local Claude Code settings (machine-specific, not project source)
+.claude/
+
+# OS junk
+.DS_Store
