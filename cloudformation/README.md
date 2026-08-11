@@ -22,6 +22,12 @@ aws s3api create-bucket \
 
 ## Deploy
 
+**Normally you don't need to do this by hand** — pushing to `main`
+triggers [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml),
+which runs the same commands below via OIDC-federated AWS credentials
+(see the main [README](../README.md#cicd) for how that auth works). The
+manual steps here are for the very first deploy, or for debugging.
+
 ```bash
 cd cloudformation
 
@@ -82,9 +88,9 @@ aws cognito-idp admin-set-user-password --user-pool-id <UserPoolId> --username <
   dev/staging/prod tournaments), so adding that indirection would be
   complexity without a real use.
 - **CloudFront caching is disabled** (`CachePolicyId` = AWS managed
-  `CachingDisabled`) — deliberate while the frontend is still actively
-  changing between manual deploys; revisit once CI/CD automates cache
-  invalidation on deploy.
+  `CachingDisabled`) — now that the GitHub Actions workflow invalidates
+  the cache on every deploy, enabling real caching is a reasonable next
+  tightening, just not done yet.
 - **`Code: ../lambda`** on each `AWS::Lambda::Function` is a local path,
   not an S3 reference — that's the CloudFormation convention `package`
   looks for and rewrites; it isn't valid syntax once packaged.

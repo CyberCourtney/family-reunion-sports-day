@@ -252,15 +252,37 @@ X for a given Y" queries, since there are no JOINs — e.g. a GSI on
     redeployed to the new bucket. Verified end-to-end live in browser
     against the new CloudFront domain: league table, login, all working.
 
+- GitHub Actions CI/CD added (`.github/workflows/deploy.yml`), triggered
+  on push to `main` touching `cloudformation/`, `lambda/`, or `frontend/`
+  (plus manual `workflow_dispatch`). Runs: `cloudformation package` +
+  `deploy`, `aws s3 cp` the frontend to the site bucket, then a CloudFront
+  invalidation. Replaces the manual steps used for every deploy so far.
+  - Auth: OIDC federation, not stored credentials. Created an IAM OIDC
+    identity provider for `token.actions.githubusercontent.com`
+    (account-wide, first one — reusable by future projects), and an IAM
+    role `sports-day-github-actions-deploy` whose trust policy uses a
+    `StringLike` condition on the `sub` claim restricted to
+    `repo:CyberCourtney/family-reunion-sports-day:ref:refs/heads/main` —
+    only workflow runs on this exact repo's `main` branch can assume it.
+    No AWS access keys stored in GitHub Secrets at all.
+  - Deploy role permissions scoped by resource ARN wherever the resource
+    name is under this project's control (the 4 DynamoDB tables, the 4
+    Lambda functions, the `sports-day-lambda-role` execution role, the
+    `sports-day` CloudFormation stack, the 2 S3 buckets). `cognito-idp:*`,
+    `cloudfront:*` use `Resource: "*"` — those services assign IDs at
+    creation time (nothing to scope to on a from-scratch deploy) and/or
+    don't support resource-level permissions on management-plane actions.
+    Deliberately not `AdministratorAccess` — the whole point of scoping
+    IAM elsewhere in this project would be undermined by handing broad
+    access to CI.
+
 ## Next steps
 - Once captains are chosen, update each team's `name` (same `teamId`,
   new `name`, via `POST /teams`)
 - Custom domain (Route 53 + ACM cert) in front of the CloudFront
   distribution, once a domain is registered
-- GitHub Actions CI/CD: on push, package + deploy the CloudFormation
-  stack, sync `frontend/index.html` to the site bucket, and invalidate
-  CloudFront — would replace the remaining manual steps (`aws s3 cp`
-  after every frontend change, `aws cloudformation package && deploy`
-  after every backend change)
+- Now that CI/CD invalidates the CloudFront cache on every deploy, revisit
+  the `CachingDisabled` policy — enabling real caching is a reasonable
+  tightening
 - Styling pass on the frontend (currently intentionally minimal/unstyled
   beyond Pico.css defaults)

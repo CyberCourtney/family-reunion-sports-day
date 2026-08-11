@@ -134,14 +134,34 @@ actually reproduces the environment, rather than just describing it.
 Deployed with `aws cloudformation package` + `aws cloudformation deploy`,
 no CDK/SAM/Terraform.
 
-The frontend (`frontend/index.html`) and the Lambda source
-(`lambda/*.js`) are still deployed to the stack's resources with plain
-`aws s3 cp` / bundled into the CloudFormation package respectively —
-GitHub Actions CI/CD to automate that on every push is the next planned
-step (see below).
+## CI/CD
+
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) runs on
+every push to `main` that touches `cloudformation/`, `lambda/`, or
+`frontend/`: it packages and deploys the CloudFormation stack, uploads
+`frontend/index.html` to the site bucket, and invalidates the CloudFront
+cache. No manual `aws` commands needed for routine changes anymore.
+
+Authentication uses **OIDC federation**, not stored AWS credentials: an
+IAM OIDC identity provider trusts `token.actions.githubusercontent.com`,
+and an IAM role (`sports-day-github-actions-deploy`) trusts that provider
+only for this exact repo on the `main` branch (via a `StringLike`
+condition on the token's `sub` claim). GitHub exchanges a short-lived
+OIDC token for temporary AWS credentials on each run — nothing long-lived
+sits in GitHub Secrets. This is the current recommended pattern over
+generating an IAM user's access keys and pasting them into CI.
+
+The deploy role's permissions are scoped by resource ARN everywhere that
+was practical — the 4 DynamoDB tables, the 4 Lambda functions, the
+specific Lambda execution role, the specific CloudFormation stack, and
+the two specific S3 buckets. Cognito, CloudFront, and API Gateway
+management-plane actions use `Resource: "*"` instead, because those
+services either assign resource IDs at creation time (so nothing to scope
+to on a from-scratch deploy) or don't support fine-grained resource-level
+permissions on their management APIs in the first place.
 
 ## What's not built yet
 
 See [PLAN.md](PLAN.md#next-steps) for the current list — roughly:
-a custom domain (needs a registered domain, deferred), CI/CD via GitHub
-Actions to automate deploys, and a real styling pass on the frontend.
+a custom domain (needs a registered domain, deferred), and a real
+styling pass on the frontend.
