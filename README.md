@@ -138,6 +138,13 @@ aws cognito-idp admin-create-user --user-pool-id eu-west-2_wUXy4UDEz --username 
 aws cognito-idp admin-set-user-password --user-pool-id eu-west-2_wUXy4UDEz --username <email> --password <temp-password> --permanent
 ```
 
+Use a lowercase `<email>` when creating an account — Cognito's
+email-as-username match is case-sensitive, and the frontend normalizes
+whatever a captain types at login to lowercase before sending it (a
+mobile keyboard capitalizing a field's first letter is common enough
+that this was a real reported bug, not a hypothetical one), so a mixed-
+case stored username would never actually match.
+
 ## Infrastructure as code
 
 [`cloudformation/template.yaml`](cloudformation/template.yaml) is the

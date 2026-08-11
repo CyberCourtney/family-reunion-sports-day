@@ -496,3 +496,26 @@ X for a given Y" queries, since there are no JOINs — e.g. a GSI on
     self-managed by the same pipeline it deploys). That also means nothing
     catches a scoping gap like this except actually running a deploy that
     needs the new permission.
+
+- **Real bug: couldn't log in on a phone.** Reported by the user directly
+  ("i cannot login" / "on my phone"). Root-caused by first confirming the
+  credentials worked at the API level (`aws cognito-idp initiate-auth`
+  succeeded from the CLI), which narrowed it to something phone-specific
+  in the frontend rather than a backend/Cognito problem. Then tested the
+  actual theory directly against the API rather than guessing: calling
+  `InitiateAuth` with just the email's first letter capitalized
+  (`Courtney@...` instead of `courtney@...`) reproduced the *exact* same
+  generic error the app would show ("Incorrect username or password") —
+  confirming Cognito's email-as-username match is case-sensitive, and
+  that a mobile keyboard auto-capitalizing a field's first letter (common
+  on iOS/Android, and `type="email"` alone doesn't reliably prevent it
+  across all devices) was the real cause. Fixed two ways, not just one:
+  `autoCapitalize="none"`/`autoCorrect="off"`/`spellCheck={false}` on both
+  login inputs (stops it happening), and — the more robust fix —
+  `email.trim().toLowerCase()` before calling Cognito regardless of what
+  the keyboard did (survives autofill, paste, or a browser that ignores
+  the hint entirely). Verified by deliberately typing a capitalized email
+  in the running app and confirming login still succeeded. Documented the
+  lowercase-username convention for future `admin-create-user` calls in
+  the README, since a mixed-case stored username would defeat the
+  frontend-side normalization entirely.

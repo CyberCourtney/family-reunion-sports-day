@@ -22,7 +22,13 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
     setError(null);
     setIsSubmitting(true);
     try {
-      await login(email, password);
+      // Cognito's email-as-username match is case-sensitive, and mobile
+      // keyboards commonly auto-capitalize a field's first letter -
+      // normalize defensively rather than relying only on the
+      // autoCapitalize hint below (belt and braces: a phone that
+      // ignores the hint, or an email pasted/autofilled with different
+      // casing, would otherwise fail to log in with no obvious reason).
+      await login(email.trim().toLowerCase(), password);
       toast("Logged in — welcome back, Captain!");
       onSuccess?.();
     } catch (err) {
@@ -38,6 +44,9 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
         label="Captain email"
         type="email"
         autoComplete="username"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         required
@@ -46,6 +55,9 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
         label="Password"
         type="password"
         autoComplete="current-password"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         required
