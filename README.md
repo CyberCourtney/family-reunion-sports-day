@@ -7,7 +7,7 @@ portfolio project — the goal is to demonstrate real, hands-on AWS
 experience for a career switch into cloud/AWS roles, not just
 certifications.
 
-**Live app:** http://family-reunion-sports-day-123456789012.s3-website.eu-west-2.amazonaws.com/
+**Live app:** https://d3lxf9ncgfwzho.cloudfront.net/
 
 For the full build log — decisions in order, as they were made — see
 [PLAN.md](PLAN.md). This README is the summary.
@@ -15,7 +15,10 @@ For the full build log — decisions in order, as they were made — see
 ## Architecture
 
 ```
-Browser (S3 static site)
+Browser
+    |
+    v
+CloudFront (HTTPS) --- Origin Access Control ---> S3 (private bucket)
     |
     v
 API Gateway (REST, eu-west-2)
@@ -29,9 +32,13 @@ DynamoDB (4 tables, on-demand billing)
 
 - **Frontend** — a single static HTML file (`frontend/index.html`), no
   build step, styled with [Pico.css](https://picocss.com/) from a CDN.
-  Hosted on S3 with static website hosting. CloudFront + a custom domain
-  is a planned next step (would also move the bucket from public-read to
-  CloudFront-only access via Origin Access Control).
+  Hosted on S3, fronted by CloudFront via Origin Access Control (OAC) —
+  the bucket itself has Block Public Access fully on and a policy scoped
+  to only this CloudFront distribution's ARN, not `Principal: *`. (An
+  earlier version served straight off the S3 website endpoint with a
+  public-read bucket policy; that was replaced once CloudFront went in.)
+  A custom domain is a possible future step, deferred since it requires
+  actually owning a registered domain.
 - **API** — API Gateway REST API, Lambda proxy integration, one Lambda
   per operation rather than one monolithic handler.
 - **Compute** — Lambda, deliberately kept out of a VPC. DynamoDB is

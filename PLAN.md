@@ -183,15 +183,37 @@ X for a given Y" queries, since there are no JOINs — e.g. a GSI on
     unaffected; full login → add player → logout flow verified live in
     browser, against both `file://` and the real S3-hosted site.
 
+- CloudFront + Origin Access Control put in front of S3, replacing the
+  direct public S3 website endpoint:
+  - Origin Access Control `sports-day-oac` created; CloudFront
+    distribution `EYSQG0GZHZ2SK` created targeting the bucket's S3 REST
+    endpoint (not the website endpoint), `PriceClass_100`, default cache
+    behavior uses the AWS managed **CachingDisabled** policy (deliberate
+    — while still actively iterating on the frontend, avoids needing a
+    cache invalidation after every manual deploy; revisit once CI/CD
+    exists to automate invalidations).
+  - Bucket policy replaced: only `cloudfront.amazonaws.com`, scoped by
+    `AWS:SourceArn` to this specific distribution — no more `Principal: *`.
+  - S3 Block Public Access fully re-enabled (all 4 settings back on).
+  - Static website hosting config removed from the bucket entirely (no
+    longer needed — CloudFront reaches S3 via its API now, not the
+    website endpoint). Confirmed the old website endpoint now 404s.
+  - New live URL (HTTPS): `https://d3lxf9ncgfwzho.cloudfront.net/`
+  - Verified end-to-end from the new domain: league table loads, login
+    works, CORS still fine (API Gateway CORS config is origin-agnostic —
+    `Access-Control-Allow-Origin: *` — so the origin change needed no
+    API-side updates).
+  - Custom domain deliberately not set up yet — would need a registered
+    domain (real annual cost) plus a Route 53 hosted zone (~$0.50/month);
+    deferred until wanted.
+
 ## Next steps
 - Once captains are chosen, update each team's `name` (same `teamId`,
   new `name`, via `POST /teams`)
-- Cognito login for captains, then lock down the write routes
-  (POST /players, /teams, /matches) to authenticated captains
-- CloudFront + custom domain (also tightens the bucket from public-read
-  to CloudFront-only access via Origin Access Control)
+- Custom domain (Route 53 + ACM cert) in front of the CloudFront
+  distribution, if/when a domain is registered
 - Infrastructure as code + GitHub Actions CI/CD (would also automate
-  re-uploading `frontend/index.html` on changes, rather than the manual
-  `aws s3 cp` used for this first deploy)
+  re-uploading `frontend/index.html` to S3 and invalidating CloudFront on
+  changes, rather than the manual `aws s3 cp` used so far)
 - Styling pass on the frontend (currently intentionally minimal/unstyled
   beyond Pico.css defaults)
