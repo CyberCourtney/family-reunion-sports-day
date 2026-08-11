@@ -292,13 +292,53 @@ X for a given Y" queries, since there are no JOINs — e.g. a GSI on
     IAM elsewhere in this project would be undermined by handing broad
     access to CI.
 
+- **Backend bug found and fixed during the React/Vite frontend rebuild
+  (below):** the CORS preflight response on all 4 API routes only
+  allowlisted `Content-Type` in `Access-Control-Allow-Headers`, never
+  `Authorization` — a gap left over from before Cognito auth existed
+  (the header requirement was added later and the CORS config was never
+  revisited). This silently blocked every real browser from calling any
+  write route with a captain's token — `curl` never caught it, since
+  curl doesn't enforce CORS, so it went undetected through all the
+  earlier curl-based verification. Only surfaced once a real browser
+  attempted the request and logged the CORS rejection to the console.
+  Fixed in `cloudformation/template.yaml` (all 4 `Access-Control-Allow-
+  Headers` response parameters →
+  `"'Content-Type,Authorization'"`), deployed, then hit a second gotcha:
+  CloudFormation doesn't automatically create a fresh
+  `AWS::ApiGateway::Deployment` just because an underlying `Method`/
+  `Integration` changed — the stack update succeeded but the live `prod`
+  stage kept serving the old snapshot until a manual
+  `aws apigateway create-deployment` forced it to pick up the change.
+  Verified fixed via `curl -X OPTIONS` showing the corrected header,
+  then a full authenticated add-player/submit-match flow through a real
+  browser against the live API.
+- React/Vite frontend rebuild in progress in `frontend-new/` (not yet
+  merged into `frontend/` — deliberately kept separate so the live
+  production site, still served from `frontend/index.html`, is
+  untouched while this is reviewed). See the plan file used to design
+  it for the full architecture: tournament lifecycle phases (before/
+  active/complete, purely date-driven off `VITE_TOURNAMENT_START`/`END`
+  since there's no backend concept of tournament phase), the hero/
+  countdown/champion-banner homepage, TanStack Query + a thin typed
+  fetch wrapper for `GET /league-table`, direct-fetch Cognito auth (no
+  Amplify) mirroring the same mechanism already proven live, and a
+  tournament-bracket component architecture designed now but not built
+  until a `GET /matches` endpoint exists. Phases 1–3 (visual shell →
+  real league table data → real auth/Add Player/Submit Match) are done
+  and verified end-to-end against the live backend, including the CORS
+  fix above.
+
 ## Next steps
 - Once captains are chosen, update each team's `name` (same `teamId`,
   new `name`, via `POST /teams`)
+- Merge `frontend-new/` into `frontend/`, update
+  `.github/workflows/deploy.yml` to build the Vite app (`npm ci && npm
+  run build`) and sync `dist/` instead of a single HTML file
 - Custom domain (Route 53 + ACM cert) in front of the CloudFront
   distribution, once a domain is registered
 - Now that CI/CD invalidates the CloudFront cache on every deploy, revisit
   the `CachingDisabled` policy — enabling real caching is a reasonable
   tightening
-- Styling pass on the frontend (currently intentionally minimal/unstyled
-  beyond Pico.css defaults)
+- Phase 4 (future, needs new backend work): match history, the
+  tournament bracket, player statistics, multi-year archive

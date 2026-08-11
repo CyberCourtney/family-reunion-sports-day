@@ -60,6 +60,25 @@ jobs:
             --region "$AWS_REGION" \
             --no-fail-on-empty-changeset
 
+      - name: Force a fresh API Gateway stage deployment
+        # CloudFormation doesn't create a new AWS::ApiGateway::Deployment
+        # just because a Method/Integration changed underneath it, so
+        # `prod` can keep serving a stale snapshot after a successful
+        # stack update. This bit us for real: a CORS fix (adding
+        # Authorization to Access-Control-Allow-Headers) deployed
+        # successfully but the live stage kept the old headers until a
+        # manual `create-deployment` forced it to pick the change up.
+        run: |
+          API_ID=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --region "$AWS_REGION" \
+            --query "Stacks[0].Outputs[?OutputKey=='ApiId'].OutputValue" \
+            --output text)
+          aws apigateway create-deployment \
+            --rest-api-id "$API_ID" \
+            --stage-name prod \
+            --region "$AWS_REGION"
+
       - name: Deploy frontend to S3
         run: |
           aws s3 cp frontend/index.html "s3://$SITE_BUCKET/index.html" \
