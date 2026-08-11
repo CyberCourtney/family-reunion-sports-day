@@ -209,6 +209,27 @@ Fixed for good by adding an `ApiId` output to the template and a step in
 `cloudformation deploy`, so no future route change can hit this same
 silent-staleness bug again.
 
+**Third debugging note:** adding a fifth Lambda (`sports-day-getMatches`)
+broke CI with the stack landing in `UPDATE_ROLLBACK_FAILED` — stuck, not
+just failed. Cause: the deploy role's IAM policy scoped `lambda:*` to an
+exhaustive list of the original 4 function ARNs, written by hand. All the
+Lambdas share one zipped `../lambda` directory as their code source, so
+adding a new file changed that zip's hash for *every* function using it —
+CloudFormation tried to update all 5 functions' code in one changeset,
+including the new one, which wasn't in the allowlist. `AccessDenied`
+triggered an automatic rollback, which hit the same permission gap
+undoing the change, leaving the stack stuck. `aws cloudformation
+describe-stack-events` had the exact IAM error in
+`ResourceStatusReason`, no guessing needed. Fixed properly — not just
+patched — by replacing the 4-ARN allowlist with a wildcard scoped to
+the project's naming convention
+(`arn:aws:lambda:...:function:sports-day-*`): same effective boundary,
+but it survives adding a function without another manual IAM edit.
+Recovered the stuck stack with `aws cloudformation
+continue-update-rollback` using the admin profile (the CI role's own
+permissions were the thing that needed fixing first, so it couldn't fix
+itself).
+
 ## What's not built yet
 
 See [PLAN.md](PLAN.md#next-steps) for the current list — roughly: a

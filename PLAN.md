@@ -425,3 +425,44 @@ X for a given Y" queries, since there are no JOINs — e.g. a GSI on
   team-level tallies when Log Match was built) and a multi-year archive
   (needs a season/year dimension added across Team/Match/Players — right
   now it's one ongoing tournament, not "tournaments")
+
+- **Real incident: CI deploy broke, then got stuck.** Pushing the
+  `GET /matches` commit failed in CI with the stack landing in
+  `UPDATE_ROLLBACK_FAILED` — a genuinely stuck state, not just a failed
+  run. Root cause: the GitHub Actions deploy role's IAM policy scoped
+  `lambda:*` to an exhaustive list of 4 specific function ARNs (written
+  by hand when the role was first created). All 4 Lambdas share one
+  zipped `../lambda` directory as their `Code` source, so adding
+  `getMatches.js` changed that zip's content hash for *every* function
+  using it — CloudFormation then tried to update all 5 functions' code
+  in one changeset, including the brand-new `sports-day-getMatches`,
+  which wasn't in the hardcoded allowlist. `AccessDenied` triggered an
+  automatic rollback, and the rollback itself hit the same permission
+  gap trying to undo the change, leaving the stack stuck.
+  - Diagnosed via `aws cloudformation describe-stack-events` — the
+    `ResourceStatusReason` on the failed event had the exact IAM error
+    (`lambda:UpdateFunctionCode ... because no identity-based policy
+    allows`), no guessing needed.
+  - Fixed the actual bug: replaced the 4-ARN allowlist with a wildcard
+    scoped to this project's naming convention
+    (`arn:aws:lambda:eu-west-2:123456789012:function:sports-day-*`) —
+    same effective security boundary (still can't touch any Lambda
+    outside this project), but now survives adding a new function
+    without another manual IAM edit. This class of bug can only recur
+    for a resource type that *isn't* scoped by a stable naming pattern.
+  - Recovered the stuck stack with `aws cloudformation
+    continue-update-rollback` (using the `sports-day-admin` profile, not
+    the CI role, since the CI role's own permissions were the thing that
+    needed fixing first). Landed back on `UPDATE_ROLLBACK_COMPLETE` —
+    verified nothing was actually lost: `GetMatchesFunction` and all 37
+    stack resources ended up `*_COMPLETE`, `GET /matches` and
+    `playerCount` both confirmed working live. The failed run just
+    never got far enough to touch the frontend, so nothing there was at
+    risk either.
+  - Note for future changes: this IAM policy isn't part of
+    `cloudformation/template.yaml` — it's managed directly via `aws iam`
+    CLI commands (see `cloudformation/README.md`), a deliberate
+    bootstrapping choice (the deployer's own permissions shouldn't be
+    self-managed by the same pipeline it deploys). That also means nothing
+    catches a scoping gap like this except actually running a deploy that
+    needs the new permission.
