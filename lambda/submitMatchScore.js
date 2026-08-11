@@ -7,6 +7,9 @@ const docClient = DynamoDBDocumentClient.from(client);
 
 const TABLE_NAME = process.env.MATCH_TABLE || "Match";
 
+const POINTS_PER_RUN = 1;
+const POINTS_PER_HOME_RUN = 2;
+
 exports.handler = async (event) => {
   let body;
   try {
@@ -15,7 +18,17 @@ exports.handler = async (event) => {
     return response(400, { error: "Invalid JSON body" });
   }
 
-  const { round, teamAId, teamBId, teamAScore, teamBScore } = body || {};
+  const {
+    round,
+    teamAId,
+    teamBId,
+    teamARuns,
+    teamAHomeRuns,
+    teamAOuts,
+    teamBRuns,
+    teamBHomeRuns,
+    teamBOuts,
+  } = body || {};
 
   if (!round || typeof round !== "string") {
     return response(400, { error: "round is required" });
@@ -29,19 +42,29 @@ exports.handler = async (event) => {
   if (teamAId === teamBId) {
     return response(400, { error: "teamAId and teamBId must be different" });
   }
-  if (!Number.isInteger(teamAScore) || teamAScore < 0) {
-    return response(400, { error: "teamAScore must be a non-negative integer" });
+
+  const counts = { teamARuns, teamAHomeRuns, teamAOuts, teamBRuns, teamBHomeRuns, teamBOuts };
+  for (const [field, value] of Object.entries(counts)) {
+    if (!Number.isInteger(value) || value < 0) {
+      return response(400, { error: `${field} must be a non-negative integer` });
+    }
   }
-  if (!Number.isInteger(teamBScore) || teamBScore < 0) {
-    return response(400, { error: "teamBScore must be a non-negative integer" });
-  }
+
+  const teamAScore = teamARuns * POINTS_PER_RUN + teamAHomeRuns * POINTS_PER_HOME_RUN;
+  const teamBScore = teamBRuns * POINTS_PER_RUN + teamBHomeRuns * POINTS_PER_HOME_RUN;
 
   const match = {
     matchId: randomUUID(),
     round,
     teamAId,
     teamBId,
+    teamARuns,
+    teamAHomeRuns,
+    teamAOuts,
     teamAScore,
+    teamBRuns,
+    teamBHomeRuns,
+    teamBOuts,
     teamBScore,
   };
 

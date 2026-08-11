@@ -37,7 +37,14 @@ Four tables:
 
 - **Team** — `teamId` (PK), `name`, `color`
 - **Player** — `playerId` (PK), `teamId` (GSI), `name`, `position`
-- **Match** — `matchId` (PK), `round`, `teamAId`, `teamBId`, `teamAScore`, `teamBScore`
+- **Match** — `matchId` (PK), `round`, `teamAId`, `teamBId`, `teamARuns`,
+  `teamAHomeRuns`, `teamAOuts`, `teamAScore`, `teamBRuns`, `teamBHomeRuns`,
+  `teamBOuts`, `teamBScore`. `teamAScore`/`teamBScore` are computed
+  server-side from runs/home runs (1pt/run, 2pt/home run) rather than
+  entered directly — captains log what actually happened in the match
+  (runs, home runs, players out), not a single final number. Outs are
+  tracked as a stat only, no scoring effect (matches real rounders: an
+  out ends a turn, it doesn't deduct points).
 - **ScoreEvent** — `eventId` (PK), `matchId` (GSI), `playerId` (GSI), `type`, `points`
 
 ScoreEvent logs each individual scoring moment (not just the final score),
@@ -328,6 +335,15 @@ X for a given Y" queries, since there are no JOINs — e.g. a GSI on
   real league table data → real auth/Add Player/Submit Match) are done
   and verified end-to-end against the live backend, including the CORS
   fix above.
+
+- `POST /matches` reworked: takes `teamARuns`/`teamAHomeRuns`/`teamAOuts`
+  (+ the `teamB*` equivalents) instead of a raw `teamAScore`/`teamBScore`
+  pair. `submitMatchScore.js` now computes the score server-side (1 point
+  per run, 2 per home run) rather than trusting a pre-totalled number
+  from the client — captains log what happened in the match, not a
+  final tally they'd have had to add up themselves. Frontend's "Submit
+  Match" renamed to "Log Match" to match (six count inputs — runs/home
+  runs/outs per team — instead of two score fields).
 
 ## Next steps
 - Once captains are chosen, update each team's `name` (same `teamId`,
