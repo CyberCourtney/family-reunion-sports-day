@@ -4,6 +4,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { useAuth } from "./hooks/useAuth";
 import { AppShell } from "./components/layout/AppShell";
 import { HomeView } from "./views/HomeView";
+import { ResultsView } from "./views/ResultsView";
 import { AddPlayerView } from "./views/AddPlayerView";
 import { LogMatchView } from "./views/LogMatchView";
 import { NAV_ITEMS, type ViewId } from "./lib/navItems";
@@ -14,6 +15,8 @@ function renderView(view: ViewId) {
   switch (view) {
     case "home":
       return <HomeView />;
+    case "results":
+      return <ResultsView />;
     case "add-player":
       return <AddPlayerView />;
     case "log-match":

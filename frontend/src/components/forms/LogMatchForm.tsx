@@ -3,7 +3,8 @@ import { useLogMatch } from "../../hooks/useLogMatch";
 import { useSessionExpiry } from "../../hooks/useSessionExpiry";
 import { useToast } from "../../hooks/useToast";
 import { ApiError } from "../../lib/api";
-import { Input } from "../ui/Input";
+import { ROUND_NAMES, type RoundName } from "../../types/api";
+import { Select } from "../ui/Select";
 import { Button } from "../ui/Button";
 import { Stepper } from "../ui/Stepper";
 import { TeamSelect } from "./TeamSelect";
@@ -58,7 +59,7 @@ function TeamTallyFields({
 }
 
 export function LogMatchForm() {
-  const [round, setRound] = useState("");
+  const [round, setRound] = useState<RoundName | "">("");
   const [teamAId, setTeamAId] = useState("");
   const [teamBId, setTeamBId] = useState("");
   const [teamA, setTeamA] = useState<TeamTally>(EMPTY_TALLY);
@@ -73,6 +74,10 @@ export function LogMatchForm() {
     e.preventDefault();
     setError(null);
 
+    if (!round) {
+      setError("Round is required.");
+      return;
+    }
     if (teamAId && teamAId === teamBId) {
       setError("Team A and Team B must be different.");
       return;
@@ -106,13 +111,19 @@ export function LogMatchForm() {
     <div className="mx-auto max-w-md px-4 pt-10">
       <h1 className="font-display font-semibold text-xl mb-6 text-center">Log a Match</h1>
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-        <Input
+        <Select
           label="Round"
-          placeholder="e.g. Semi-Final 1, Final"
           value={round}
-          onChange={(e) => setRound(e.target.value)}
+          onChange={(e) => setRound(e.target.value as RoundName)}
           required
-        />
+        >
+          <option value="">Select a round…</option>
+          {ROUND_NAMES.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </Select>
 
         <div className="flex flex-col gap-4 rounded-2xl border border-line p-4">
           <TeamSelect label="Team A" value={teamAId} onChange={setTeamAId} disabledTeamId={teamBId} required />

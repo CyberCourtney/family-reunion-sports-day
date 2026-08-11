@@ -1,17 +1,12 @@
+import type { LeagueTableRow } from "../../types/api";
 import { TeamCard } from "./TeamCard";
 
-interface TeamsShowcaseTeam {
-  teamId: string;
-  name: string;
-  color: string;
-}
-
 interface TeamsShowcaseProps {
-  teams: TeamsShowcaseTeam[];
+  teams: LeagueTableRow[];
 }
 
-// "Before" phase content - no roster data exists (no GET /players), so
-// this shows team identity only, not players.
+// "Before" phase content - no roster listing (still no GET /players),
+// but playerCount gives real, live content instead of 4 static circles.
 export function TeamsShowcase({ teams }: TeamsShowcaseProps) {
   return (
     <section className="mx-auto max-w-3xl px-4 py-10 sm:py-14">
@@ -20,7 +15,12 @@ export function TeamsShowcase({ teams }: TeamsShowcaseProps) {
       </h2>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {teams.map((team) => (
-          <TeamCard key={team.teamId} name={team.name} color={team.color} />
+          <TeamCard
+            key={team.teamId}
+            name={team.name}
+            color={team.color}
+            playerCount={team.playerCount}
+          />
         ))}
       </div>
     </section>

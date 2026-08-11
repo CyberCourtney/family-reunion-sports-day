@@ -37,17 +37,21 @@ DynamoDB (4 tables, on-demand billing)
 ```
 
 - **Frontend** — React + TypeScript + Vite (see [`frontend/README.md`](frontend/README.md)),
-  built with TanStack Query for `GET /league-table` and the two write
-  mutations, Tailwind for the design system, and direct-`fetch` Cognito
-  auth (no Amplify). Deliberately **no router** — the three screens
-  (League Table / Add Player / Log Match) are tabs, not deep-linkable
-  pages, so a real router's need for CloudFront SPA-fallback config
-  (403/404 → `/index.html`) never came up. The homepage is
-  phase-aware — before/during/after the tournament, purely date-driven
-  off env vars, since there's no backend concept of "tournament state" —
-  showing a countdown before the event, live standings during, and a
-  champion banner after (`table[0]` off the already-sorted league table,
-  no extra endpoint needed). Hosted on S3, fronted by CloudFront via
+  built with TanStack Query for `GET /league-table`, `GET /matches`, and
+  the two write mutations, Tailwind for the design system, and
+  direct-`fetch` Cognito auth (no Amplify). Deliberately **no router** —
+  the four screens (Home / Results / Add Player / Log Match) are tabs,
+  not deep-linkable pages, so a real router's need for CloudFront
+  SPA-fallback config (403/404 → `/index.html`) never came up. The
+  homepage is phase-aware — before/during/after the tournament, purely
+  date-driven off env vars, since there's no backend concept of
+  "tournament state" — showing a countdown + a live tournament bracket
+  preview (TBD slots) before the event, the bracket with live results
+  plus the standings during, and a champion banner after (`table[0]` off
+  the already-sorted league table, no extra endpoint needed). The
+  bracket is a deliberate vertical stack, not a literal branching
+  diagram with connecting lines — reads far more clearly on a phone.
+  Hosted on S3, fronted by CloudFront via
   Origin Access Control (OAC) — the bucket itself has Block Public
   Access fully on and a policy scoped to only this CloudFront
   distribution's ARN, not `Principal: *`. (Two earlier versions existed:
@@ -102,8 +106,9 @@ Base URL: `https://ecoayq3mq0.execute-api.eu-west-2.amazonaws.com/prod`
 |---|---|---|---|
 | `POST` | `/players` | `sports-day-addPlayer` | |
 | `POST` | `/teams` | `sports-day-createTeam` | Also how a team's `name` gets updated — same `teamId`, new `name`. |
-| `POST` | `/matches` | `sports-day-submitMatchScore` | Takes `teamARuns`/`teamAHomeRuns`/`teamAOuts` (+ the `teamB*` equivalents), not a pre-totalled score — captains log what happened in the match, the Lambda computes `teamAScore`/`teamBScore` server-side (1pt/run, 2pt/home run; outs are a tracked stat only, no scoring effect). |
-| `GET` | `/league-table` | `sports-day-getLeagueTable` | Scans `Team` + `Match`, computes played/won/drawn/lost/points/run-difference per team. 2 points for a win, 1 for a draw, 0 for a loss; ties broken by run difference. |
+| `POST` | `/matches` | `sports-day-submitMatchScore` | Takes `teamARuns`/`teamAHomeRuns`/`teamAOuts` (+ the `teamB*` equivalents), not a pre-totalled score — captains log what happened in the match, the Lambda computes `teamAScore`/`teamBScore` server-side (1pt/run, 2pt/home run; outs are a tracked stat only, no scoring effect). `round` must be one of `Semi-Final 1`/`Semi-Final 2`/`Final` — a fixed set, not free text, so the tournament bracket can reliably map a match to a bracket slot. |
+| `GET` | `/league-table` | `sports-day-getLeagueTable` | Scans `Team` + `Match` + `Players`, computes played/won/drawn/lost/points/run-difference and `playerCount` per team. 2 points for a win, 1 for a draw, 0 for a loss; ties broken by run difference. |
+| `GET` | `/matches` | `sports-day-getMatches` | Scans `Match`, sorted by `submittedAt`. Powers both the Results view and the homepage bracket. |
 
 CORS is enabled (`Access-Control-Allow-Origin: *`) so the static frontend
 can call the API directly from the browser — each resource has an
@@ -233,8 +238,9 @@ itself).
 ## What's not built yet
 
 See [PLAN.md](PLAN.md#next-steps) for the current list — roughly: a
-custom domain (needs a registered domain, deferred), and Phase 4 of the
-frontend (match history, a tournament bracket, player statistics, a
-multi-year archive) — all blocked on backend work that doesn't exist
-yet (there's no `GET /matches` or `GET /players`, and no season/year
-dimension in the data model for an archive).
+custom domain (needs a registered domain, deferred), and the rest of
+Phase 4 (match history and the tournament bracket are done; player
+statistics beyond a headcount, and a multi-year archive, are still
+blocked on backend work that doesn't exist yet — there's still no
+`GET /players` roster listing, and no season/year dimension in the data
+model for an archive).

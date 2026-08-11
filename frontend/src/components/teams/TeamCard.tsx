@@ -4,9 +4,10 @@ import { Card } from "../ui/Card";
 interface TeamCardProps {
   name: string;
   color: string;
+  playerCount: number;
 }
 
-export function TeamCard({ name, color }: TeamCardProps) {
+export function TeamCard({ name, color, playerCount }: TeamCardProps) {
   const swatch = getTeamColor(color);
 
   return (
@@ -16,7 +17,12 @@ export function TeamCard({ name, color }: TeamCardProps) {
         style={{ backgroundColor: swatch.hex }}
         aria-hidden="true"
       />
-      <span className="font-display font-semibold text-base">{name}</span>
+      <div>
+        <p className="font-display font-semibold text-base">{name}</p>
+        <p className="text-xs text-ink-muted mt-0.5">
+          {playerCount} {playerCount === 1 ? "player" : "players"}
+        </p>
+      </div>
     </Card>
   );
 }

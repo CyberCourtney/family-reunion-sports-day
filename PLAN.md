@@ -404,14 +404,44 @@ X for a given Y" queries, since there are no JOINs — e.g. a GSI on
     fix) — had to manually `aws apigateway create-deployment` after the
     stack update before the new `GET /matches` route actually worked.
 
+- Frontend caught up to the backend work above:
+  - Log Match's `round` field is now a `Select` with the 3 fixed values
+    instead of free text — matches the backend validation, one source of
+    truth for what a "round" can be.
+  - New public "Results" view (`ResultsView`/`MatchResultCard`) — a
+    chronological match history, most recent first, winner shown bold.
+  - `TournamentBracket` built for real (the architecture was designed
+    earlier, deferred until `GET /matches` existed): a vertical stack
+    (Semi-Final 1 → Semi-Final 2 → Final), deliberately not a literal
+    branching diagram with connecting lines — reads far more clearly on
+    a 375px phone. Shown on the homepage in **every** phase, not just
+    after the tournament — before it starts, all three slots show "TBD"
+    placeholders, which is the actual fix for the homepage feeling empty
+    pre-tournament (real content to look forward to, not decoration).
+    The Final slot preview-fills with each semi's winner as soon as it's
+    known (derived client-side from scores — no bracket/seeding data
+    exists), then switches to the Final's own real recorded result once
+    that match is actually logged. A draw in a semi intentionally shows
+    no winner rather than guessing a tie-break.
+  - Team cards show the new `playerCount` ("Blue Team — 0 players") —
+    real, live content instead of 4 static circles.
+  - Verified end-to-end live: logged a real semi-final, watched the
+    homepage bracket update immediately (query invalidation) with the
+    winner bold and the Final slot preview-filling with that team; the
+    Results view showed the same match correctly. Test data cleaned up.
+  - Along the way, confirmed one apparent bug (a match saved with all
+    stats at 0 despite clicking "+" six times first) was a test-script
+    artifact, not a real one — firing synchronous `.click()` calls in a
+    tight loop with no yield back to the browser let the submit handler
+    fire before React's state updates had flushed, so it read stale
+    values. Retested with realistically-paced individual clicks (closer
+    to how a real user interacts) and it worked correctly every time.
+    Distinguishing "my test harness raced itself" from "the app has a
+    bug" mattered here — the earlier Stepper race (documented above) was
+    a real bug with the same *symptom* but a different, actual cause in
+    application code; this one wasn't.
+
 ## Next steps
-- Frontend for the above: Log Match's `round` field becomes a fixed
-  Select instead of free text; a new public "Results" view for match
-  history; the tournament bracket component (architecture already
-  designed earlier) wired to real data and shown on the homepage in all
-  three phases (TBD slots before the tournament, live progress during/
-  after) — the actual fix for the homepage feeling empty pre-tournament,
-  rather than pure decoration; team cards show the new `playerCount`.
 - Once captains are chosen, update each team's `name` (same `teamId`,
   new `name`, via `POST /teams`)
 - Custom domain (Route 53 + ACM cert) in front of the CloudFront
