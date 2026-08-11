@@ -344,6 +344,19 @@ X for a given Y" queries, since there are no JOINs — e.g. a GSI on
   final tally they'd have had to add up themselves. Frontend's "Submit
   Match" renamed to "Log Match" to match (six count inputs — runs/home
   runs/outs per team — instead of two score fields).
+- Log Match's runs/home runs/outs fields became a `Stepper` component
+  (`− value +`) instead of plain number inputs, so captains don't need
+  to tap into a field, clear it, and retype a number for every change.
+  Caught and fixed a real bug while building it: the first version
+  computed each increment as `value + 1` off the prop passed in from the
+  last render, so rapid clicks (verified by firing 5 synthetic clicks
+  with no delay) could race and undercount. Fixed by having the Stepper
+  report increment/decrement/typed *events* rather than computed values,
+  applied by the parent via a functional `setState` update
+  (`setTeamA(prev => ...)`), which can't lose an update to a stale
+  closure. Verified both the race fix (5 rapid clicks → 5) and the full
+  submit flow (stepper input → correct server-computed score) live
+  against the real API.
 
 ## Next steps
 - Once captains are chosen, update each team's `name` (same `teamId`,
