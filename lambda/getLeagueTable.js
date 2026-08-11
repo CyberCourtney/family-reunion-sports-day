@@ -6,18 +6,28 @@ const docClient = DynamoDBDocumentClient.from(client);
 
 const TEAM_TABLE = process.env.TEAM_TABLE || "Team";
 const MATCH_TABLE = process.env.MATCH_TABLE || "Match";
+const PLAYERS_TABLE = process.env.PLAYERS_TABLE || "Players";
 
 const POINTS_WIN = 2;
 const POINTS_DRAW = 1;
 const POINTS_LOSS = 0;
 
 exports.handler = async () => {
-  let teams, matches;
+  let teams, matches, players;
   try {
-    [teams, matches] = await Promise.all([scanAll(TEAM_TABLE), scanAll(MATCH_TABLE)]);
+    [teams, matches, players] = await Promise.all([
+      scanAll(TEAM_TABLE),
+      scanAll(MATCH_TABLE),
+      scanAll(PLAYERS_TABLE),
+    ]);
   } catch (err) {
     console.error(err);
     return response(500, { error: "Failed to load league data" });
+  }
+
+  const playerCounts = new Map();
+  for (const player of players) {
+    playerCounts.set(player.teamId, (playerCounts.get(player.teamId) ?? 0) + 1);
   }
 
   const standings = new Map();
@@ -26,6 +36,7 @@ exports.handler = async () => {
       teamId: team.teamId,
       name: team.name,
       color: team.color,
+      playerCount: playerCounts.get(team.teamId) ?? 0,
       played: 0,
       won: 0,
       drawn: 0,

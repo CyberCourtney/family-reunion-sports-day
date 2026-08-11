@@ -208,6 +208,24 @@ Resources:
         Variables:
           TEAM_TABLE: !Ref TeamTable
           MATCH_TABLE: !Ref MatchTable
+          PLAYERS_TABLE: !Ref PlayersTable
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
+
+  GetMatchesFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: sports-day-getMatches
+      Runtime: nodejs20.x
+      Handler: getMatches.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code: ../lambda
+      Timeout: 10
+      MemorySize: 128
+      Environment:
+        Variables:
+          MATCH_TABLE: !Ref MatchTable
       Tags:
         - Key: project
           Value: family-reunion-sports-day
@@ -346,6 +364,18 @@ Resources:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
         Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${SubmitMatchScoreFunction.Arn}/invocations"
+
+  MatchesGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref MatchesResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetMatchesFunction.Arn}/invocations"
 
   LeagueTableGetMethod:
     Type: AWS::ApiGateway::Method
@@ -491,6 +521,14 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/GET/league-table"
 
+  GetMatchesApiPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref GetMatchesFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/GET/matches"
+
   ApiDeployment:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
@@ -499,6 +537,7 @@ Resources:
       - TeamsPostMethod
       - TeamsOptionsMethod
       - MatchesPostMethod
+      - MatchesGetMethod
       - MatchesOptionsMethod
       - LeagueTableGetMethod
       - LeagueTableOptionsMethod

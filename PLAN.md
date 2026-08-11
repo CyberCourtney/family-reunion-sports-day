@@ -379,7 +379,39 @@ X for a given Y" queries, since there are no JOINs — e.g. a GSI on
   `.env.production`'s values (checked the API URL is actually present in
   the built JS bundle), and the live CI-deployed site works end-to-end.
 
+- Started Phase 4, scoped down to what's actually useful now (match
+  history + bracket; player stats and multi-year archive stay deferred —
+  see below):
+  - New `GET /matches` endpoint (`getMatches.js`, public, same pattern
+    as `getLeagueTable.js` — scans `Match`, sorted by a new
+    `submittedAt` timestamp field added to `submitMatchScore.js`).
+  - `round` is no longer free text — `submitMatchScore.js` now validates
+    it against a fixed set (`Semi-Final 1`, `Semi-Final 2`, `Final`)
+    matching the tournament's actual format (4 teams, 2 semis, 1 final).
+    Needed because the tournament bracket has to reliably map a match to
+    a bracket slot, which free text (typos, "SF1" vs "semi final one")
+    can't guarantee.
+  - `getLeagueTable.js` now also returns `playerCount` per team (scans
+    `Players` too, counts by `teamId`) — doesn't expose a roster listing
+    (still no `GET /players`), just a count, which is enough to make
+    "Meet the Teams" show something real instead of 4 static circles.
+  - Deployed and verified live: invalid `round` rejected, valid
+    submission computes the score and stamps `submittedAt`, `GET
+    /matches` returns it, `playerCount` shows up correctly (0, matching
+    reality — no players added yet). Test data cleaned up.
+  - Hit the by-now-familiar API Gateway staleness issue again deploying
+    this via the CLI directly (not through CI, which already has the
+    fix) — had to manually `aws apigateway create-deployment` after the
+    stack update before the new `GET /matches` route actually worked.
+
 ## Next steps
+- Frontend for the above: Log Match's `round` field becomes a fixed
+  Select instead of free text; a new public "Results" view for match
+  history; the tournament bracket component (architecture already
+  designed earlier) wired to real data and shown on the homepage in all
+  three phases (TBD slots before the tournament, live progress during/
+  after) — the actual fix for the homepage feeling empty pre-tournament,
+  rather than pure decoration; team cards show the new `playerCount`.
 - Once captains are chosen, update each team's `name` (same `teamId`,
   new `name`, via `POST /teams`)
 - Custom domain (Route 53 + ACM cert) in front of the CloudFront
@@ -387,5 +419,9 @@ X for a given Y" queries, since there are no JOINs — e.g. a GSI on
 - Now that CI/CD invalidates the CloudFront cache on every deploy, revisit
   the `CachingDisabled` policy — enabling real caching is a reasonable
   tightening
-- Phase 4 (future, needs new backend work): match history, the
-  tournament bracket, player statistics, multi-year archive
+- Still deferred (Phase 4, needs more backend work than the above):
+  player statistics beyond a headcount (would mean bringing back
+  per-player attribution, which was deliberately dropped in favour of
+  team-level tallies when Log Match was built) and a multi-year archive
+  (needs a season/year dimension added across Team/Match/Players — right
+  now it's one ongoing tournament, not "tournaments")

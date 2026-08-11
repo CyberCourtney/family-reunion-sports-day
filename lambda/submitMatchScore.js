@@ -10,6 +10,11 @@ const TABLE_NAME = process.env.MATCH_TABLE || "Match";
 const POINTS_PER_RUN = 1;
 const POINTS_PER_HOME_RUN = 2;
 
+// Fixed set rather than free text - the tournament bracket needs to
+// reliably map a match to a bracket slot, which isn't possible from
+// arbitrary round names.
+const VALID_ROUNDS = ["Semi-Final 1", "Semi-Final 2", "Final"];
+
 exports.handler = async (event) => {
   let body;
   try {
@@ -33,6 +38,9 @@ exports.handler = async (event) => {
   if (!round || typeof round !== "string") {
     return response(400, { error: "round is required" });
   }
+  if (!VALID_ROUNDS.includes(round)) {
+    return response(400, { error: `round must be one of: ${VALID_ROUNDS.join(", ")}` });
+  }
   if (!teamAId || typeof teamAId !== "string") {
     return response(400, { error: "teamAId is required" });
   }
@@ -55,6 +63,7 @@ exports.handler = async (event) => {
 
   const match = {
     matchId: randomUUID(),
+    submittedAt: new Date().toISOString(),
     round,
     teamAId,
     teamBId,
