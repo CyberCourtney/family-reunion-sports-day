@@ -207,13 +207,60 @@ X for a given Y" queries, since there are no JOINs — e.g. a GSI on
     domain (real annual cost) plus a Route 53 hosted zone (~$0.50/month);
     deferred until wanted.
 
+- Entire stack rebuilt under CloudFormation (`cloudformation/template.yaml`
+  — plain CloudFormation, not CDK/SAM, chosen deliberately to fit ongoing
+  AWS certification study). See `cloudformation/README.md` for the deploy
+  workflow.
+  - Approach: tore down every manually-created resource from this point
+    in the log onward (DynamoDB tables, Lambda functions, the Lambda
+    execution role, the API Gateway REST API, the Cognito user pool, the
+    CloudFront distribution + OAC, the S3 site bucket) and deployed a
+    fresh stack from the template — rather than importing the existing
+    resources. Chosen because it actually proves the template works
+    end-to-end from nothing, which is the stronger thing to be able to
+    say happened, versus resource import (technically fine, but fiddlier
+    via CLI and a less commonly-tested skill). Cost of this choice: new
+    resource IDs (API URL, CloudFront domain, Cognito pool/client),
+    recreating the captain account and the 4 placeholder teams — trivial,
+    no real data existed yet.
+  - Template covers all 35 resources: 4 DynamoDB tables (with GSIs), the
+    scoped Lambda execution role, all 4 Lambda functions (sharing one
+    deployment package — `lambda/` — since they're small and dependency-
+    free; each just points `Handler` at a different file), the full API
+    Gateway setup (4 resources, CORS OPTIONS mocks, the Cognito
+    authorizer on the 3 write routes, Lambda invoke permissions,
+    deployment + `prod` stage), the Cognito user pool + app client
+    (same config as before: email username, optional TOTP MFA, invite-
+    only), and S3 + CloudFront with OAC (same lockdown as before: bucket
+    policy scoped to the distribution's `AWS:SourceArn`, Block Public
+    Access fully on).
+  - Deployed via `aws cloudformation package` (zips `lambda/`, uploads to
+    a small dedicated artifacts bucket, `sports-day-cfn-artifacts-
+    123456789012`) then `aws cloudformation deploy` — stack name
+    `sports-day`, `CAPABILITY_NAMED_IAM` (needed since the template names
+    the IAM role explicitly rather than letting CloudFormation
+    auto-generate a name).
+  - New stack outputs: API `https://ecoayq3mq0.execute-api.eu-west-2
+    .amazonaws.com/prod`, CloudFront `https://d23lzmogmj156y.cloudfront
+    .net/`, site bucket `sports-day-sitebucket-qaduylz8wh7i`. DynamoDB
+    table names and Lambda function names were kept identical to before
+    (set explicitly in the template) since nothing else forced them to
+    change.
+  - Re-seeded: captain account (`courtney@cybercourtney.uk`, same
+    password) and the 4 real teams. `frontend/index.html`'s `API_BASE`
+    and `COGNITO_CLIENT_ID` constants updated to the new values,
+    redeployed to the new bucket. Verified end-to-end live in browser
+    against the new CloudFront domain: league table, login, all working.
+
 ## Next steps
 - Once captains are chosen, update each team's `name` (same `teamId`,
   new `name`, via `POST /teams`)
 - Custom domain (Route 53 + ACM cert) in front of the CloudFront
-  distribution, if/when a domain is registered
-- Infrastructure as code + GitHub Actions CI/CD (would also automate
-  re-uploading `frontend/index.html` to S3 and invalidating CloudFront on
-  changes, rather than the manual `aws s3 cp` used so far)
+  distribution, once a domain is registered
+- GitHub Actions CI/CD: on push, package + deploy the CloudFormation
+  stack, sync `frontend/index.html` to the site bucket, and invalidate
+  CloudFront — would replace the remaining manual steps (`aws s3 cp`
+  after every frontend change, `aws cloudformation package && deploy`
+  after every backend change)
 - Styling pass on the frontend (currently intentionally minimal/unstyled
   beyond Pico.css defaults)

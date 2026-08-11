@@ -7,7 +7,13 @@ portfolio project — the goal is to demonstrate real, hands-on AWS
 experience for a career switch into cloud/AWS roles, not just
 certifications.
 
-**Live app:** https://d3lxf9ncgfwzho.cloudfront.net/
+**Live app:** https://d23lzmogmj156y.cloudfront.net/
+
+The entire stack is defined as code in
+[`cloudformation/template.yaml`](cloudformation/template.yaml) — plain
+CloudFormation (deliberately not CDK/SAM, to fit ongoing AWS
+certification study). See [`cloudformation/README.md`](cloudformation/README.md)
+for the deploy workflow.
 
 For the full build log — decisions in order, as they were made — see
 [PLAN.md](PLAN.md). This README is the summary.
@@ -52,14 +58,15 @@ DynamoDB (4 tables, on-demand billing)
   a low-traffic seasonal app).
 - **IAM** — two separate identities, deliberately not sharing scope:
   - `sports-day-admin`, an IAM user with `AdministratorAccess`, used for
-    building the infrastructure itself (this repo's author, via the CLI).
-    Root account access keys were deleted once this was working — root
-    should never hold day-to-day credentials.
-  - `sports-day-lambda-role`, the Lambda execution role, scoped to only
-    `AWSLambdaBasicExecutionRole` (CloudWatch Logs) plus an inline policy
-    granting read/write on exactly the four project tables and their
-    indexes — not account-wide DynamoDB access. Least privilege for the
-    thing that's actually internet-facing.
+    deploying the stack (this repo's author, via the CLI — `aws
+    cloudformation deploy`, not console click-ops). Root account access
+    keys were deleted once this was working — root should never hold
+    day-to-day credentials.
+  - `sports-day-lambda-role`, the Lambda execution role (defined in the
+    CloudFormation template), scoped to only `AWSLambdaBasicExecutionRole`
+    (CloudWatch Logs) plus an inline policy granting read/write on exactly
+    the four project tables and their indexes — not account-wide DynamoDB
+    access. Least privilege for the thing that's actually internet-facing.
 - **Auth** — Amazon Cognito user pool for captains (see below), plus an
   AWS Budget alarm ($5/month, email at 80% actual / 100% forecasted) as a
   cheap independent safety net against unexpected cost.
@@ -79,7 +86,7 @@ table scan.
 
 ## API
 
-Base URL: `https://9yfy3j62g1.execute-api.eu-west-2.amazonaws.com/prod`
+Base URL: `https://ecoayq3mq0.execute-api.eu-west-2.amazonaws.com/prod`
 
 | Method | Path | Lambda | Notes |
 |---|---|---|---|
@@ -110,14 +117,31 @@ deliberately left off to avoid per-message SNS cost), admin-created users
 only (self-signup disabled, invite-only). New captains are added with:
 
 ```
-aws cognito-idp admin-create-user --user-pool-id eu-west-2_cKMOlcy34 --username <email> ...
-aws cognito-idp admin-set-user-password --user-pool-id eu-west-2_cKMOlcy34 --username <email> --password <temp-password> --permanent
+aws cognito-idp admin-create-user --user-pool-id eu-west-2_wUXy4UDEz --username <email> ...
+aws cognito-idp admin-set-user-password --user-pool-id eu-west-2_wUXy4UDEz --username <email> --password <temp-password> --permanent
 ```
+
+## Infrastructure as code
+
+[`cloudformation/template.yaml`](cloudformation/template.yaml) is the
+single source of truth for every AWS resource in this project — 35
+resources across DynamoDB, IAM, Lambda, API Gateway, Cognito, S3, and
+CloudFront. It was written after building everything manually via the
+CLI first (see [PLAN.md](PLAN.md) for that process and the reasoning
+behind each choice), then the manually-created resources were torn down
+and the stack redeployed from scratch via the template — proving it
+actually reproduces the environment, rather than just describing it.
+Deployed with `aws cloudformation package` + `aws cloudformation deploy`,
+no CDK/SAM/Terraform.
+
+The frontend (`frontend/index.html`) and the Lambda source
+(`lambda/*.js`) are still deployed to the stack's resources with plain
+`aws s3 cp` / bundled into the CloudFormation package respectively —
+GitHub Actions CI/CD to automate that on every push is the next planned
+step (see below).
 
 ## What's not built yet
 
 See [PLAN.md](PLAN.md#next-steps) for the current list — roughly:
-CloudFront + custom domain, infrastructure as code (CDK/SAM/Terraform)
-and CI/CD via GitHub Actions to replace the manual `aws s3 cp` /
-`aws lambda update-function-code` deploys used to build this so far, and
-a real styling pass on the frontend.
+a custom domain (needs a registered domain, deferred), CI/CD via GitHub
+Actions to automate deploys, and a real styling pass on the frontend.
