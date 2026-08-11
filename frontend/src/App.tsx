@@ -24,9 +24,36 @@ function renderView(view: ViewId) {
   }
 }
 
+function isViewId(value: string): value is ViewId {
+  return NAV_ITEMS.some((item) => item.id === value);
+}
+
+function getViewFromHash(): ViewId {
+  const hash = window.location.hash.slice(1);
+  return isViewId(hash) ? hash : "home";
+}
+
 function AppContent() {
-  const [activeView, setActiveView] = useState<ViewId>("home");
+  const [activeView, setActiveView] = useState<ViewId>(getViewFromHash);
   const { session } = useAuth();
+
+  // Mirror the active tab in the URL hash so refresh, back/forward, and
+  // sharing a link all land on the same tab instead of always resetting
+  // to Home. A hash (not a path) is deliberate - it never leaves the
+  // browser, so it needs no CloudFront SPA-fallback config (see plan §5).
+  useEffect(() => {
+    if (window.location.hash.slice(1) !== activeView) {
+      window.location.hash = activeView;
+    }
+  }, [activeView]);
+
+  useEffect(() => {
+    function handleHashChange() {
+      setActiveView(getViewFromHash());
+    }
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
 
   // Logging out while on a captain-only view: that view is no longer
   // reachable, so fall back to Home rather than showing a dead page.

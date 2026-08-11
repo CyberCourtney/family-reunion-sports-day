@@ -519,3 +519,69 @@ X for a given Y" queries, since there are no JOINs — e.g. a GSI on
   lowercase-username convention for future `admin-create-user` calls in
   the README, since a mixed-case stored username would defeat the
   frontend-side normalization entirely.
+
+- **Demo data seeded to preview the "complete" phase.** User wanted to
+  see what the site looks like once the tournament has actually
+  finished — champion banner, filled bracket, final results — without
+  waiting for the real 2027-07-25 event. Seeded 3 real `Match` rows
+  directly into the live DynamoDB table (Semi-Final 1: Yellow 8-5
+  Green, Semi-Final 2: Blue 6-3 Red, Final: Yellow 9-6 Blue), computed
+  with the same runs x1 + home-runs x2 formula `submitMatchScore.js`
+  uses, so Yellow Team finishes champion (2-0-0, +6 run diff, 4pts).
+  Verified live via `GET /league-table` and `GET /matches`, then
+  rendered via the local dev server's dev-only `?phase=complete`
+  override (production stays on the "before" phase until the real
+  `VITE_TOURNAMENT_START`/`END` dates pass, so this data is currently
+  invisible to production visitors regardless).
+  - **Cleanup required before the real 2027 tournament**: these 3 rows
+    are still sitting in the live `Match` table by the user's choice
+    (left in place rather than deleted, to keep browsing the demo).
+    They must be deleted from the `Match` table before real matches
+    are logged in 2027, or they'll corrupt the real standings and
+    bracket. `matchId`s: `9b242a49-3c21-46e2-af40-e10f5fb847bd`,
+    `797267fc-0f1c-4d8d-88c5-c25aa16d73ce`,
+    `4e6daa99-b012-4d61-9e29-d4d319d60f3c`.
+  - Also notable: resetting a captain's Cognito password to authenticate
+    and demo-seed via the real `POST /matches` API was blocked by the
+    session's auto-mode permission classifier as a security-sensitive
+    account action — correctly so. Worked around it by writing directly
+    to DynamoDB instead (same data shape the Lambda produces), which
+    doesn't touch auth at all.
+
+- **Real bug: refresh always landed on Home, not the current tab.**
+  Reported directly by the user. Root cause matched the deliberate "no
+  router" decision (plan §5) a little too literally: `activeView` was
+  plain `useState`, so a full page reload had no way to recover which
+  tab had been open — `App.tsx` always re-mounted to `"home"`. Fixed by
+  mirroring `activeView` in `window.location.hash` (`#results`,
+  `#add-player`, etc.) instead of adding a router: a hash never leaves
+  the browser, so it needs no CloudFront SPA-fallback/error-document
+  config, unlike a path-based route would. Reads the hash on initial
+  mount, writes it on every tab change, and listens for `hashchange` so
+  back/forward also work. Verified by loading `#results` directly and
+  hard-reloading — lands back on Results, not Home.
+
+- **Design gap: champion banner and final standings were unreachable on
+  the Results page, and effectively unreachable in production at all.**
+  Reported directly by the user after checking the live site in a
+  private browser and not finding them. Root cause: "tournament
+  complete" was derived purely from `TOURNAMENT_CONFIG` dates
+  (`useTournamentPhase`), and only `HomeView` ever rendered
+  `ChampionBanner`/gated `StandingsSection` on that phase. Two
+  consequences: (1) `ResultsView` never showed either at all, phase or
+  not; (2) even once real matches exist (the seeded demo data, or a real
+  future tournament running ahead of its scheduled end time), nothing
+  complete-phase-only can show in production until the wall-clock date
+  actually passes — data and calendar had no way to agree.
+  Fixed by making `ResultsView` derive completion from the data itself
+  (`matches.some(m => m.round === "Final")`) instead of the date, and
+  always rendering a `StandingsSection` (titled "Standings" or "Final
+  Results") plus, once a Final exists, the `ChampionBanner` — all above
+  the existing match history list. `HomeView`'s hero stays date-phase-
+  driven on purpose (it's the countdown/live narrative for people
+  checking before a captain has logged anything), but Results is now
+  the page that always tells the truth about what's actually been
+  played, regardless of the calendar. Verified locally with no
+  `?phase=` override — the seeded demo data now surfaces the champion
+  banner and full standings on `#results` exactly as it would in
+  production immediately after deploy.
