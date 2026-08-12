@@ -49,67 +49,10 @@ and root-causing real incidents with real tooling instead of guessing.
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    Browser(["🌐 Browser"])
+![Architecture diagram: browser and GitHub Actions on the outside, an AWS Cloud boundary containing CloudFront and S3 for frontend delivery, API Gateway and Cognito for API and auth, Lambda for compute, and DynamoDB for data, with an IAM role and CloudFormation handling deploys](docs/images/architecture-diagram.svg)
 
-    subgraph Delivery[" Frontend delivery "]
-        direction TB
-        CF("CloudFront<br/>HTTPS + Origin Access Control")
-        S3F("S3 (private)<br/>React build")
-        CF --> S3F
-    end
-
-    subgraph APIGroup[" API "]
-        direction TB
-        APIGW("API Gateway<br/>REST")
-        Cognito("🔒 Cognito<br/>captain login")
-    end
-
-    Lambda("⚡ Lambda ×5<br/>one function per operation")
-    DDB[("🗄️ DynamoDB<br/>4 tables")]
-
-    subgraph CICD[" CI/CD - GitHub Actions "]
-        direction TB
-        GHA("on push to main")
-        OIDC{{"IAM role via OIDC<br/>no stored AWS keys"}}
-        GHA --> OIDC
-    end
-
-    Browser -- HTTPS --> CF
-    Browser -- "reads (public)" --> APIGW
-    Browser -- "writes (signed in)" --> APIGW
-    Browser -. InitiateAuth .-> Cognito
-    APIGW -. validates token .-> Cognito
-    APIGW --> Lambda --> DDB
-
-    OIDC -. deploys .-> CF
-    OIDC -. deploys .-> APIGW
-    OIDC -. deploys .-> Lambda
-
-    classDef delivery fill:#DBEAFE,stroke:#2563EB,color:#1E3A8A,stroke-width:1.5px
-    classDef api fill:#EDE9FE,stroke:#7C3AED,color:#4C1D95,stroke-width:1.5px
-    classDef compute fill:#FFEDD5,stroke:#EA580C,color:#7C2D12,stroke-width:1.5px
-    classDef data fill:#D1FAE5,stroke:#059669,color:#064E3B,stroke-width:1.5px
-    classDef client fill:#F1F5F9,stroke:#64748B,color:#1E293B,stroke-width:1.5px
-    classDef cicd fill:#F3F4F6,stroke:#374151,color:#111827,stroke-width:1.5px,stroke-dasharray: 3 2
-
-    class Browser client
-    class CF,S3F delivery
-    class APIGW,Cognito api
-    class Lambda compute
-    class DDB data
-    class GHA,OIDC cicd
-
-    style Delivery fill:#EFF6FF,stroke:#BFDBFE,stroke-width:1px
-    style APIGroup fill:#F5F3FF,stroke:#DDD6FE,stroke-width:1px
-    style CICD fill:#F9FAFB,stroke:#E5E7EB,stroke-width:1px,stroke-dasharray: 2 2
-```
-
-Solid lines are what happens when someone uses the app. Dashed lines are
-what happens when I push a change and GitHub Actions ships it. It's fully
-serverless, so there are no servers to patch and I only pay for what
-actually gets used. Everything above is defined as code in
+It's fully serverless, so there are no servers to patch and I only pay
+for what actually gets used. Everything above is defined as code in
 [`cloudformation/template.yaml`](cloudformation/template.yaml).
 
 ## Want the details?

@@ -1,0 +1,199 @@
+<svg width="1400" height="860" viewBox="0 0 1400 860" xmlns="http://www.w3.org/2000/svg" font-family="'Helvetica Neue', Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+    <marker id="arrowDash" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94A3B8"/>
+    </marker>
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0F172A" flood-opacity="0.18"/>
+    </filter>
+
+    <symbol id="icon-browser" viewBox="0 0 56 56">
+      <rect x="4" y="4" width="48" height="48" rx="8" fill="none" stroke="white" stroke-width="3"/>
+      <line x1="4" y1="18" x2="52" y2="18" stroke="white" stroke-width="3"/>
+      <circle cx="12" cy="11" r="1.8" fill="white"/>
+      <circle cx="18" cy="11" r="1.8" fill="white"/>
+      <circle cx="24" cy="11" r="1.8" fill="white"/>
+    </symbol>
+
+    <symbol id="icon-cloudfront" viewBox="0 0 56 56">
+      <path d="M17 36 a9 9 0 0 1 -1 -18 a12 12 0 0 1 23 -3 a8 8 0 0 1 -2 21 z" fill="white"/>
+    </symbol>
+
+    <symbol id="icon-s3" viewBox="0 0 56 56">
+      <path d="M14 16 L42 16 L38 40 a2 2 0 0 1 -2 2 L20 42 a2 2 0 0 1 -2 -2 Z" fill="white"/>
+      <ellipse cx="28" cy="16" rx="14" ry="4" fill="white"/>
+    </symbol>
+
+    <symbol id="icon-apigw" viewBox="0 0 56 56">
+      <rect x="10" y="12" width="6" height="32" fill="white"/>
+      <rect x="40" y="12" width="6" height="32" fill="white"/>
+      <path d="M20 28 L34 28 M28 20 L36 28 L28 36" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+
+    <symbol id="icon-cognito" viewBox="0 0 56 56">
+      <path d="M28 8 L46 15 V27 C46 38 38 46 28 49 C18 46 10 38 10 27 V15 Z" fill="white"/>
+      <circle cx="28" cy="24" r="6" fill="#7C3AED"/>
+      <path d="M18 38 a10 9 0 0 1 20 0" fill="#7C3AED"/>
+    </symbol>
+
+    <symbol id="icon-lambda" viewBox="0 0 56 56">
+      <text x="28" y="40" text-anchor="middle" font-size="34" font-weight="700" fill="white">&#955;</text>
+    </symbol>
+
+    <symbol id="icon-dynamodb" viewBox="0 0 56 56">
+      <ellipse cx="28" cy="16" rx="16" ry="6" fill="white"/>
+      <path d="M12 16 L12 40 a16 6 0 0 0 32 0 L44 16" fill="none" stroke="white" stroke-width="3.5"/>
+      <path d="M12 28 a16 6 0 0 0 32 0" fill="none" stroke="white" stroke-width="3"/>
+    </symbol>
+
+    <symbol id="icon-idcard" viewBox="0 0 56 56">
+      <rect x="7" y="13" width="42" height="30" rx="4" fill="none" stroke="white" stroke-width="3.2"/>
+      <circle cx="19" cy="27" r="5.5" fill="white"/>
+      <line x1="29" y1="23" x2="42" y2="23" stroke="white" stroke-width="3"/>
+      <line x1="29" y1="31" x2="42" y2="31" stroke="white" stroke-width="3"/>
+    </symbol>
+
+    <symbol id="icon-cfn" viewBox="0 0 56 56">
+      <rect x="10" y="10" width="15" height="15" rx="2" fill="white"/>
+      <rect x="31" y="10" width="15" height="15" rx="2" fill="white"/>
+      <rect x="10" y="31" width="15" height="15" rx="2" fill="white"/>
+      <rect x="31" y="31" width="15" height="15" rx="2" fill="white"/>
+    </symbol>
+
+    <symbol id="icon-gha" viewBox="0 0 56 56">
+      <path d="M28 10 a18 18 0 1 1 -12.7 5.3" fill="none" stroke="white" stroke-width="4" stroke-linecap="round"/>
+      <path d="M9 8 L15 15.5 L6.5 18 Z" fill="white"/>
+    </symbol>
+  </defs>
+
+  <rect x="0" y="0" width="1400" height="860" fill="#ffffff"/>
+
+  <!-- Title -->
+  <text x="40" y="46" font-size="24" font-weight="700" fill="#0F172A">The Family Rounders Cup: architecture</text>
+  <text x="40" y="70" font-size="14" fill="#64748B">Serverless AWS app, deployed by GitHub Actions via OIDC federation</text>
+
+  <!-- AWS Cloud boundary -->
+  <rect x="300" y="95" width="1060" height="710" rx="18" fill="#FFFCF5" stroke="#FF9900" stroke-width="2" stroke-dasharray="9 6"/>
+  <text x="326" y="126" font-size="16" font-weight="700" fill="#B36B00">AWS CLOUD</text>
+
+  <!-- Browser actor -->
+  <g>
+    <rect x="56" y="230" width="90" height="90" rx="20" fill="#1971C2" filter="url(#softShadow)"/>
+    <use href="#icon-browser" x="68" y="242" width="66" height="66"/>
+    <text x="101" y="345" text-anchor="middle" font-size="15" font-weight="600" fill="#0F172A">Browser</text>
+  </g>
+
+  <!-- GitHub Actions actor -->
+  <g>
+    <rect x="56" y="590" width="90" height="90" rx="20" fill="#334155" filter="url(#softShadow)"/>
+    <use href="#icon-gha" x="68" y="602" width="66" height="66"/>
+    <text x="101" y="705" text-anchor="middle" font-size="15" font-weight="600" fill="#0F172A">GitHub</text>
+    <text x="101" y="723" text-anchor="middle" font-size="15" font-weight="600" fill="#0F172A">Actions</text>
+  </g>
+
+  <!-- Frontend delivery group -->
+  <rect x="336" y="165" width="360" height="170" rx="14" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1.5"/>
+  <text x="352" y="189" font-size="12" font-weight="700" fill="#1E3A8A" letter-spacing="1">FRONTEND DELIVERY</text>
+
+  <g>
+    <rect x="360" y="205" width="80" height="80" rx="18" fill="#2563EB" filter="url(#softShadow)"/>
+    <use href="#icon-cloudfront" x="372" y="217" width="56" height="56"/>
+    <text x="400" y="301" text-anchor="middle" font-size="13" font-weight="600" fill="#0F172A">CloudFront</text>
+  </g>
+  <line x1="450" y1="245" x2="568" y2="245" stroke="#2563EB" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="509" y="237" text-anchor="middle" font-size="11" fill="#1E3A8A">serves</text>
+  <g>
+    <rect x="576" y="205" width="80" height="80" rx="18" fill="#2563EB" filter="url(#softShadow)"/>
+    <use href="#icon-s3" x="588" y="217" width="56" height="56"/>
+    <text x="616" y="301" text-anchor="middle" font-size="13" font-weight="600" fill="#0F172A">S3 (private)</text>
+  </g>
+
+  <!-- API and auth group -->
+  <rect x="736" y="165" width="360" height="170" rx="14" fill="#F5F3FF" stroke="#DDD6FE" stroke-width="1.5"/>
+  <text x="752" y="189" font-size="12" font-weight="700" fill="#4C1D95" letter-spacing="1">API &amp; AUTH</text>
+
+  <g>
+    <rect x="760" y="205" width="80" height="80" rx="18" fill="#7C3AED" filter="url(#softShadow)"/>
+    <use href="#icon-apigw" x="772" y="217" width="56" height="56"/>
+    <text x="800" y="301" text-anchor="middle" font-size="13" font-weight="600" fill="#0F172A">API Gateway</text>
+  </g>
+  <line x1="850" y1="245" x2="968" y2="245" stroke="#7C3AED" stroke-width="2" stroke-dasharray="4 4" marker-end="url(#arrow)"/>
+  <text x="909" y="237" text-anchor="middle" font-size="11" fill="#4C1D95">verifies token</text>
+  <g>
+    <rect x="976" y="205" width="80" height="80" rx="18" fill="#7C3AED" filter="url(#softShadow)"/>
+    <use href="#icon-cognito" x="988" y="217" width="56" height="56"/>
+    <text x="1016" y="301" text-anchor="middle" font-size="13" font-weight="600" fill="#0F172A">Cognito</text>
+  </g>
+
+  <!-- Compute group -->
+  <rect x="336" y="400" width="360" height="150" rx="14" fill="#FFF7ED" stroke="#FED7AA" stroke-width="1.5"/>
+  <text x="352" y="424" font-size="12" font-weight="700" fill="#7C2D12" letter-spacing="1">COMPUTE</text>
+  <g>
+    <rect x="476" y="440" width="80" height="80" rx="18" fill="#EA580C" filter="url(#softShadow)"/>
+    <use href="#icon-lambda" x="488" y="452" width="56" height="56"/>
+    <text x="516" y="536" text-anchor="middle" font-size="13" font-weight="600" fill="#0F172A">Lambda &#215;5</text>
+  </g>
+
+  <!-- Data group -->
+  <rect x="736" y="400" width="360" height="150" rx="14" fill="#ECFDF5" stroke="#A7F3D0" stroke-width="1.5"/>
+  <text x="752" y="424" font-size="12" font-weight="700" fill="#064E3B" letter-spacing="1">DATA</text>
+  <g>
+    <rect x="876" y="440" width="80" height="80" rx="18" fill="#059669" filter="url(#softShadow)"/>
+    <use href="#icon-dynamodb" x="888" y="452" width="56" height="56"/>
+    <text x="916" y="536" text-anchor="middle" font-size="13" font-weight="600" fill="#0F172A">DynamoDB</text>
+  </g>
+  <line x1="556" y1="480" x2="874" y2="480" stroke="#EA580C" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- Deploy identity group -->
+  <rect x="336" y="610" width="760" height="150" rx="14" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="352" y="634" font-size="12" font-weight="700" fill="#334155" letter-spacing="1">DEPLOYS THE STACK ABOVE</text>
+  <g>
+    <rect x="376" y="650" width="80" height="80" rx="18" fill="#475569" filter="url(#softShadow)"/>
+    <use href="#icon-idcard" x="388" y="662" width="56" height="56"/>
+    <text x="416" y="746" text-anchor="middle" font-size="13" font-weight="600" fill="#0F172A">IAM Role</text>
+  </g>
+  <line x1="456" y1="690" x2="574" y2="690" stroke="#475569" stroke-width="2" stroke-dasharray="4 4" marker-end="url(#arrowDash)"/>
+  <text x="515" y="682" text-anchor="middle" font-size="11" fill="#334155">runs</text>
+  <g>
+    <rect x="576" y="650" width="80" height="80" rx="18" fill="#475569" filter="url(#softShadow)"/>
+    <use href="#icon-cfn" x="588" y="662" width="56" height="56"/>
+    <text x="616" y="746" text-anchor="middle" font-size="13" font-weight="600" fill="#0F172A">CloudFormation</text>
+  </g>
+
+  <!-- Request-time arrows: Browser to CloudFront (direct, no obstruction) -->
+  <path d="M146 260 L 336 220" fill="none" stroke="#2563EB" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <text x="200" y="222" font-size="12" fill="#1E3A8A">HTTPS</text>
+
+  <!-- Browser to API Gateway: routed above the Frontend Delivery box, elbowed -->
+  <path d="M146 246 L 176 246 L 176 138 L 800 138 L 800 201" fill="none" stroke="#7C3AED" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- Browser to Cognito: routed above, slightly higher lane so it doesn't overlap the API Gateway lane -->
+  <path d="M146 300 L 200 300 L 200 152 L 1016 152 L 1016 201" fill="none" stroke="#7C3AED" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#arrow)"/>
+
+  <!-- Caption block for Browser's two harder-to-label outgoing paths -->
+  <line x1="56" y1="378" x2="86" y2="378" stroke="#7C3AED" stroke-width="2.5"/>
+  <text x="94" y="382" font-size="12.5" fill="#334155">reads (public) / writes (signed in)</text>
+  <line x1="56" y1="402" x2="86" y2="402" stroke="#7C3AED" stroke-width="2" stroke-dasharray="5 5"/>
+  <text x="94" y="406" font-size="12.5" fill="#334155">sign in to Cognito</text>
+
+  <!-- API Gateway to Lambda: elbowed through the gap between the group boxes -->
+  <path d="M800 285 L 800 375 L 516 375 L 516 436" fill="none" stroke="#EA580C" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- Deploy-time arrows -->
+  <path d="M146 620 L 220 620 L 220 690 L 372 690" fill="none" stroke="#94A3B8" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrowDash)"/>
+  <text x="225" y="612" font-size="12" fill="#475569">assumes role via OIDC</text>
+
+  <path d="M616 650 L 616 570" fill="none" stroke="#94A3B8" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrowDash)"/>
+  <text x="628" y="600" font-size="12" fill="#475569">deploys the stack above</text>
+
+  <!-- Legend -->
+  <g transform="translate(1130, 790)">
+    <line x1="0" y1="0" x2="30" y2="0" stroke="#334155" stroke-width="2.5"/>
+    <text x="38" y="4" font-size="12" fill="#334155">request path</text>
+    <line x1="0" y1="24" x2="30" y2="24" stroke="#94A3B8" stroke-width="2" stroke-dasharray="6 5"/>
+    <text x="38" y="28" font-size="12" fill="#334155">deploy path</text>
+  </g>
+</svg>
