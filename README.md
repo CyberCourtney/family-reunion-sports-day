@@ -1,14 +1,28 @@
 # The Family Rounders Cup
 
-A serverless web app for a family reunion rounders tournament: four teams
-log in as captains, add players, and submit match results; everyone can
-see a live league table, match history, and tournament bracket.
+It started with rain. Halfway through the final of our family rounders
+tournament, the sky opened, the paper scoresheet turned to pulp, and
+nobody could agree what the score actually was. We finished the match
+tracking it on a phone instead — which worked, but "a phone" isn't a
+league table, a match history, or something four different captains can
+reliably update from a soggy field next year.
 
-**This is a personal AWS portfolio project** — built to demonstrate real,
-hands-on cloud experience for a career switch into AWS/cloud roles, not
-just certifications. Every piece of infrastructure is code, deployed
-through a real CI/CD pipeline, with the actual production incidents hit
-along the way documented rather than hidden.
+So this is that, done properly: a serverless web app for the tournament —
+four teams log in as captains, add players, and submit match results;
+everyone can see a live league table, match history, and tournament
+bracket, from a phone, rain or shine.
+
+**It's also a personal AWS portfolio project** — built to demonstrate
+real, hands-on cloud experience for a career switch into AWS/cloud roles,
+not just certifications. The actual shape of the problem — has to work on
+a phone, for non-technical users, for one day a year, for next to no
+money — is what drove most of the architecture decisions below:
+serverless and on-demand billing because paying for an idle server 364
+days a year for one tournament is absurd, and Cognito over rolling my own
+auth because four captains needing a simple, secure login is exactly the
+problem managed auth exists to solve. Every piece of infrastructure is
+code, deployed through a real CI/CD pipeline, with the actual production
+incidents hit along the way documented rather than hidden.
 
 **Live app:** https://d23lzmogmj156y.cloudfront.net/
 
