@@ -614,3 +614,21 @@ all X for a given Y" queries, since there are no JOINs. A GSI on
   `?phase=` override: the seeded demo data now surfaces the champion
   banner and full standings on `#results` exactly as it would in
   production immediately after deploy.
+
+- **Runtime deprecation: bumped all 5 Lambdas off Node.js 20.** AWS
+  Health emailed a notice that Node.js 20.x reached end-of-life on
+  2026-04-30 and Lambda support for it ended the same day, so the
+  functions were still running but on an unsupported, unpatched
+  runtime. Checked the live account directly
+  (`aws lambda get-function-configuration`) and confirmed all 5
+  functions were in fact still on `nodejs20.x`. Fixed by changing
+  `Runtime: nodejs20.x` to `Runtime: nodejs22.x` (current LTS, and
+  already what the GitHub Actions workflow uses for the frontend
+  build) in all 5 `AWS::Lambda::Function` resources in
+  `cloudformation/template.yaml`. Checked first that this was actually
+  safe: none of the Lambda source uses anything Node-20-specific, and
+  none of them bundle their own `node_modules` (no `package.json` in
+  `lambda/` at all), so they rely entirely on the AWS SDK v3 that ships
+  with the Lambda runtime itself. Bumping the runtime does bump that
+  bundled SDK version too, but the calls used here (basic DynamoDB
+  Client/PutCommand-style operations) are stable across that range.

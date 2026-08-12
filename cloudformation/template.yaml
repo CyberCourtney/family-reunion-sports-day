@@ -147,7 +147,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: sports-day-addPlayer
-      Runtime: nodejs20.x
+      Runtime: nodejs22.x
       Handler: addPlayer.handler
       Role: !GetAtt LambdaExecutionRole.Arn
       Code: ../lambda
@@ -164,7 +164,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: sports-day-createTeam
-      Runtime: nodejs20.x
+      Runtime: nodejs22.x
       Handler: createTeam.handler
       Role: !GetAtt LambdaExecutionRole.Arn
       Code: ../lambda
@@ -181,7 +181,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: sports-day-submitMatchScore
-      Runtime: nodejs20.x
+      Runtime: nodejs22.x
       Handler: submitMatchScore.handler
       Role: !GetAtt LambdaExecutionRole.Arn
       Code: ../lambda
@@ -198,7 +198,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: sports-day-getLeagueTable
-      Runtime: nodejs20.x
+      Runtime: nodejs22.x
       Handler: getLeagueTable.handler
       Role: !GetAtt LambdaExecutionRole.Arn
       Code: ../lambda
@@ -217,7 +217,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: sports-day-getMatches
-      Runtime: nodejs20.x
+      Runtime: nodejs22.x
       Handler: getMatches.handler
       Role: !GetAtt LambdaExecutionRole.Arn
       Code: ../lambda
