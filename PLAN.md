@@ -533,14 +533,13 @@ X for a given Y" queries, since there are no JOINs — e.g. a GSI on
   override (production stays on the "before" phase until the real
   `VITE_TOURNAMENT_START`/`END` dates pass, so this data is currently
   invisible to production visitors regardless).
-  - **Cleanup required before the real 2027 tournament**: these 3 rows
-    are still sitting in the live `Match` table by the user's choice
-    (left in place rather than deleted, to keep browsing the demo).
-    They must be deleted from the `Match` table before real matches
-    are logged in 2027, or they'll corrupt the real standings and
-    bracket. `matchId`s: `9b242a49-3c21-46e2-af40-e10f5fb847bd`,
+  - **Cleanup: done.** Deleted all 3 rows from the live `Match` table
+    (`matchId`s `9b242a49-3c21-46e2-af40-e10f5fb847bd`,
     `797267fc-0f1c-4d8d-88c5-c25aa16d73ce`,
-    `4e6daa99-b012-4d61-9e29-d4d319d60f3c`.
+    `4e6daa99-b012-4d61-9e29-d4d319d60f3c`) once the user had seen the
+    complete-phase experience via the fixes above. Verified via
+    `GET /matches` (empty) and `GET /league-table` (all 4 teams back to
+    0 played / 0 points).
   - Also notable: resetting a captain's Cognito password to authenticate
     and demo-seed via the real `POST /matches` API was blocked by the
     session's auto-mode permission classifier as a security-sensitive
