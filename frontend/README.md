@@ -1,6 +1,6 @@
 # Frontend
 
-React + TypeScript + Vite, no router (see [PLAN.md](../PLAN.md) for why),
+React + TypeScript + Vite, no router (see [the engineering log](../docs/ENGINEERING-LOG.md) for why),
 TanStack Query, Tailwind CSS, direct-fetch Cognito auth (no Amplify).
 See the top-level [README.md](../README.md) for the full project writeup.
 

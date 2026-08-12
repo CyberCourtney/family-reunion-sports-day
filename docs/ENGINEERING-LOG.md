@@ -1,4 +1,11 @@
-# Rounders league app — project plan
+# Engineering log
+
+The chronological build log for [The Family Rounders Cup](../README.md) —
+every decision in the order it was actually made, including the early
+architecture that changed and the production incidents that came up
+along the way, each with root cause, fix, and how it was verified. The
+[README](../README.md) is the polished summary; this is the unfiltered
+version behind it.
 
 ## What this is
 A web app for a family reunion rounders tournament. Four teams (green, red,
