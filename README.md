@@ -13,8 +13,11 @@ along the way documented rather than hidden.
 **Live app:** https://d23lzmogmj156y.cloudfront.net/
 
 <p align="center">
-  <img src="docs/images/screenshot-home.jpg" alt="Home page — countdown, teams, and tournament bracket" width="260">
-  <img src="docs/images/screenshot-results.jpg" alt="Results page — league standings and match history" width="260">
+  <img src="docs/images/screenshot-home.jpg" alt="Home page — countdown, teams, and tournament bracket" width="170">
+  <img src="docs/images/screenshot-login.jpg" alt="Captain login" width="170">
+  <img src="docs/images/screenshot-add-player.jpg" alt="Add Player form, captain-only" width="170">
+  <img src="docs/images/screenshot-log-match.jpg" alt="Log Match form with stepper inputs, captain-only" width="170">
+  <img src="docs/images/screenshot-results.jpg" alt="Results page — league standings and match history" width="170">
 </p>
 
 ## Skills demonstrated
