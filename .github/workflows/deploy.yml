@@ -26,7 +26,6 @@ permissions:
 env:
   AWS_REGION: eu-west-2
   STACK_NAME: sports-day
-  ARTIFACTS_BUCKET: sports-day-cfn-artifacts-123456789012
   SITE_BUCKET: sports-day-sitebucket-qaduylz8wh7i
   CLOUDFRONT_DISTRIBUTION_ID: E1V898KRV13G43
 
@@ -39,10 +38,16 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::123456789012:role/sports-day-github-actions-deploy
+          # Account ID lives in a repo secret rather than here, so the
+          # account isn't disclosed just by reading this public workflow
+          # file - the OIDC trust policy itself is what actually restricts
+          # who can assume this role, not keeping the ID out of view.
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/sports-day-github-actions-deploy
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Package CloudFormation template
+        env:
+          ARTIFACTS_BUCKET: sports-day-cfn-artifacts-${{ secrets.AWS_ACCOUNT_ID }}
         run: |
           aws cloudformation package \
             --template-file cloudformation/template.yaml \
