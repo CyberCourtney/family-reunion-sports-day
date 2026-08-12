@@ -12,6 +12,11 @@ along the way documented rather than hidden.
 
 **Live app:** https://d23lzmogmj156y.cloudfront.net/
 
+<p align="center">
+  <img src="docs/images/screenshot-home.jpg" alt="Home page — countdown, teams, and tournament bracket" width="260">
+  <img src="docs/images/screenshot-results.jpg" alt="Results page — league standings and match history" width="260">
+</p>
+
 ## Skills demonstrated
 
 **AWS:** Lambda · API Gateway · DynamoDB · Cognito · S3 · CloudFront ·

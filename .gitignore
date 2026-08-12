@@ -9,3 +9,6 @@ cloudformation/packaged.yaml
 
 # OS junk
 .DS_Store
+
+# Raw phone screenshots staged before picking/cropping into docs/images/
+Project pics/
