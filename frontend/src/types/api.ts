@@ -41,3 +41,22 @@ export interface Match {
 export interface MatchesResponse {
   matches: Match[];
 }
+
+export interface Player {
+  playerId: string;
+  name: string;
+  teamId: TeamId;
+  position: string | null;
+}
+
+export interface PlayersResponse {
+  players: Player[];
+}
+
+// Minimal team identity needed to open a roster - anywhere a team icon
+// is clickable passes one of these rather than a full LeagueTableRow.
+export interface RosterTeamRef {
+  teamId: TeamId;
+  name: string;
+  color: string;
+}

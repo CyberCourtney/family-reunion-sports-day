@@ -1,8 +1,10 @@
 import { Card } from "../ui/Card";
 import { TeamBadge } from "../league-table/TeamBadge";
+import type { RosterTeamRef } from "../../types/api";
 
 export interface BracketSlotTeam {
   name: string;
+  teamId?: string;
   color?: string;
   score?: number;
   isWinner?: boolean;
@@ -13,10 +15,19 @@ interface BracketMatchCardProps {
   teamA: BracketSlotTeam;
   teamB: BracketSlotTeam;
   emphasized?: boolean;
+  onSelectTeam: (team: RosterTeamRef) => void;
 }
 
-function SlotRow({ team, align }: { team: BracketSlotTeam; align: "left" | "right" }) {
-  const isTbd = !team.color;
+function SlotRow({
+  team,
+  align,
+  onSelectTeam,
+}: {
+  team: BracketSlotTeam;
+  align: "left" | "right";
+  onSelectTeam: (team: RosterTeamRef) => void;
+}) {
+  const isTbd = !team.color || !team.teamId;
   return (
     <div
       className={`flex items-center gap-2 ${align === "right" ? "flex-row-reverse text-right" : ""}`}
@@ -24,7 +35,11 @@ function SlotRow({ team, align }: { team: BracketSlotTeam; align: "left" | "righ
       {isTbd ? (
         <span className="h-4 w-4 rounded-full border-2 border-dashed border-line shrink-0" />
       ) : (
-        <TeamBadge color={team.color!} />
+        <TeamBadge
+          color={team.color!}
+          onClick={() => onSelectTeam({ teamId: team.teamId!, name: team.name, color: team.color! })}
+          label={`View ${team.name} roster`}
+        />
       )}
       <span
         className={`truncate font-display ${
@@ -40,7 +55,13 @@ function SlotRow({ team, align }: { team: BracketSlotTeam; align: "left" | "righ
   );
 }
 
-export function BracketMatchCard({ roundLabel, teamA, teamB, emphasized }: BracketMatchCardProps) {
+export function BracketMatchCard({
+  roundLabel,
+  teamA,
+  teamB,
+  emphasized,
+  onSelectTeam,
+}: BracketMatchCardProps) {
   return (
     <Card
       className={`p-4 flex flex-col gap-2.5 ${emphasized ? "border-accent border-2" : ""}`}
@@ -48,8 +69,8 @@ export function BracketMatchCard({ roundLabel, teamA, teamB, emphasized }: Brack
       <p className="text-xs uppercase tracking-wide text-ink-muted font-display font-medium">
         {roundLabel}
       </p>
-      <SlotRow team={teamA} align="left" />
-      <SlotRow team={teamB} align="left" />
+      <SlotRow team={teamA} align="left" onSelectTeam={onSelectTeam} />
+      <SlotRow team={teamB} align="left" onSelectTeam={onSelectTeam} />
     </Card>
   );
 }

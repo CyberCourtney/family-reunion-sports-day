@@ -1,13 +1,14 @@
-import type { LeagueTableRow } from "../../types/api";
+import type { LeagueTableRow, RosterTeamRef } from "../../types/api";
 import { TeamCard } from "./TeamCard";
 
 interface TeamsShowcaseProps {
   teams: LeagueTableRow[];
+  onSelectTeam: (team: RosterTeamRef) => void;
 }
 
-// "Before" phase content - no roster listing (still no GET /players),
-// but playerCount gives real, live content instead of 4 static circles.
-export function TeamsShowcase({ teams }: TeamsShowcaseProps) {
+// "Before" phase content - playerCount gives real, live content instead
+// of 4 static circles, and tapping a card opens that team's roster.
+export function TeamsShowcase({ teams, onSelectTeam }: TeamsShowcaseProps) {
   return (
     <section className="mx-auto max-w-3xl px-4 py-10 sm:py-14">
       <h2 className="font-display font-semibold text-xl sm:text-2xl text-center mb-6">
@@ -20,6 +21,7 @@ export function TeamsShowcase({ teams }: TeamsShowcaseProps) {
             name={team.name}
             color={team.color}
             playerCount={team.playerCount}
+            onClick={() => onSelectTeam({ teamId: team.teamId, name: team.name, color: team.color })}
           />
         ))}
       </div>

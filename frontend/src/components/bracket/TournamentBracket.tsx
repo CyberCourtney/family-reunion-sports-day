@@ -1,10 +1,11 @@
 import { ChevronDown, Trophy } from "lucide-react";
 import { BracketMatchCard, type BracketSlotTeam } from "./BracketMatchCard";
-import type { Match, LeagueTableRow } from "../../types/api";
+import type { Match, LeagueTableRow, RosterTeamRef } from "../../types/api";
 
 interface TournamentBracketProps {
   matches: Match[];
   teamsById: Map<string, LeagueTableRow>;
+  onSelectTeam: (team: RosterTeamRef) => void;
 }
 
 function getWinnerId(match: Match | undefined): string | undefined {
@@ -22,7 +23,7 @@ function toSlot(
 ): BracketSlotTeam {
   if (!teamId) return { name: "TBD" };
   const team = teamsById.get(teamId);
-  return { name: team?.name ?? teamId, color: team?.color, score, isWinner };
+  return { name: team?.name ?? teamId, teamId, color: team?.color, score, isWinner };
 }
 
 // Deliberately a vertical stack, not a literal branching diagram -
@@ -31,7 +32,7 @@ function toSlot(
 // actually played (there's no seeding data); the Final preview-fills
 // with the semi winners once they're known, then switches to the
 // Final's own real recorded result once that match is played too.
-export function TournamentBracket({ matches, teamsById }: TournamentBracketProps) {
+export function TournamentBracket({ matches, teamsById, onSelectTeam }: TournamentBracketProps) {
   const sf1 = matches.find((m) => m.round === "Semi-Final 1");
   const sf2 = matches.find((m) => m.round === "Semi-Final 2");
   const final = matches.find((m) => m.round === "Final");
@@ -55,11 +56,13 @@ export function TournamentBracket({ matches, teamsById }: TournamentBracketProps
             roundLabel="Semi-Final 1"
             teamA={toSlot(sf1?.teamAId, teamsById, sf1?.teamAScore, sf1WinnerId === sf1?.teamAId)}
             teamB={toSlot(sf1?.teamBId, teamsById, sf1?.teamBScore, sf1WinnerId === sf1?.teamBId)}
+            onSelectTeam={onSelectTeam}
           />
           <BracketMatchCard
             roundLabel="Semi-Final 2"
             teamA={toSlot(sf2?.teamAId, teamsById, sf2?.teamAScore, sf2WinnerId === sf2?.teamAId)}
             teamB={toSlot(sf2?.teamBId, teamsById, sf2?.teamBScore, sf2WinnerId === sf2?.teamBId)}
+            onSelectTeam={onSelectTeam}
           />
         </div>
 
@@ -71,6 +74,7 @@ export function TournamentBracket({ matches, teamsById }: TournamentBracketProps
             teamA={toSlot(finalTeamAId, teamsById, final?.teamAScore, finalWinnerId === finalTeamAId)}
             teamB={toSlot(finalTeamBId, teamsById, final?.teamBScore, finalWinnerId === finalTeamBId)}
             emphasized
+            onSelectTeam={onSelectTeam}
           />
         </div>
 

@@ -10,8 +10,9 @@ the real incidents I hit along the way, that's in
 ## Frontend
 
 React + TypeScript + Vite (see [`frontend/README.md`](../frontend/README.md)),
-built with TanStack Query for `GET /league-table`, `GET /matches`, and the
-two write mutations, Tailwind for the design system, and direct-`fetch`
+built with TanStack Query for `GET /league-table`, `GET /matches`,
+`GET /players`, and the two write mutations, Tailwind for the design
+system, and direct-`fetch`
 Cognito auth (no Amplify). There's no router on purpose. The four screens
 (Home / Results / Add Player / Log Match) are tabs, not deep-linkable
 pages, so I never had to deal with a real router's need for CloudFront
@@ -78,6 +79,7 @@ Base URL: `https://ecoayq3mq0.execute-api.eu-west-2.amazonaws.com/prod`
 | `POST` | `/matches` | `sports-day-submitMatchScore` | Takes `teamARuns`/`teamAHomeRuns`/`teamAOuts` (plus the `teamB*` equivalents), not a pre-totalled score. Captains log what happened in the match, and the Lambda computes `teamAScore`/`teamBScore` server-side (1pt/run, 2pt/home run; outs are just a tracked stat, no scoring effect). `round` has to be one of `Semi-Final 1`/`Semi-Final 2`/`Final`, a fixed set rather than free text, so the tournament bracket can reliably map a match to a bracket slot. |
 | `GET` | `/league-table` | `sports-day-getLeagueTable` | Scans `Team` + `Match` + `Players`, computes played/won/drawn/lost/points/run-difference and `playerCount` per team. 2 points for a win, 1 for a draw, 0 for a loss, ties broken by run difference. |
 | `GET` | `/matches` | `sports-day-getMatches` | Scans `Match`, sorted by `submittedAt`. Powers both the Results view and the homepage bracket. |
+| `GET` | `/players?teamId=X` | `sports-day-getPlayers` | Queries the `teamId-index` GSI (not a scan). 400s if `teamId` is missing - there's no "all players" listing, only per-team rosters. Powers the roster sheet opened by tapping a team's colour icon. |
 
 CORS is enabled (`Access-Control-Allow-Origin: *`) so the static frontend
 can call the API directly from the browser. Each resource has an
@@ -88,7 +90,9 @@ real method.
 
 `POST /players`, `POST /teams`, and `POST /matches` all require a valid
 Cognito ID token, via an API Gateway `COGNITO_USER_POOLS` authorizer.
-`GET /league-table` and `GET /matches` stay public. Captains log in
+`GET /league-table`, `GET /matches`, and `GET /players` stay public - a
+roster is exactly the kind of thing every family member browsing the
+site should be able to see, not just captains. Captains log in
 through a form in the React app, which calls Cognito's `InitiateAuth` API
 directly over `fetch` (`USER_PASSWORD_AUTH` flow), no Amplify or SDK
 bundle needed. The resulting ID token gets stored in `sessionStorage` and

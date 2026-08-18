@@ -531,6 +531,35 @@ all X for a given Y" queries, since there are no JOINs. A GSI on
   invalidation instead, so leaving real caching off no longer buys
   anything - just latency.
 
+- Team colour icons ("Meet the Teams" cards and the Tournament Bracket
+  badges) were purely decorative - tapping one did nothing, even though
+  the app already had per-team player *counts*. Root cause: there was
+  no `GET /players` endpoint, only a count derived inside
+  `getLeagueTable.js`. Added the missing piece instead of just
+  disabling the affected icons:
+  - `getPlayers.js` (new): `GET /players?teamId=X`, public (`NONE`
+    auth, same as `/matches` and `/league-table`), queries the
+    `teamId-index` GSI on `Players` rather than scanning the whole
+    table. 400s if `teamId` is missing.
+  - `GetPlayersFunction` + `PlayersGetMethod` added to
+    `template.yaml`, reusing the existing `PlayersResource` (already
+    had `POST`) and the existing `LambdaExecutionRole` (already scoped
+    to query the `Players` table + its indexes - no IAM change
+    needed).
+  - Frontend: `TeamCard` and the bracket's `TeamBadge` are now real
+    `<button>`s that open a `RosterSheet` (same bottom-sheet/modal
+    pattern as `LoginSheet`) fetching that team's roster via a new
+    `usePlayers(teamId)` hook, enabled only once a team's picked.
+    Match-history badges on the Results page were deliberately left
+    non-interactive - a roster isn't the point of that view.
+  - Deployed and verified live: `curl` confirmed the endpoint 400s
+    with no `teamId` and 200s with one; in-browser, tapping "Yellow
+    Team" (which already had one real player, "Courtney", added
+    during earlier testing) opened the sheet with that player's name
+    and position, tapping a 0-player team showed "No players added
+    yet", and closing worked cleanly with no console errors either
+    way.
+
 ## Next steps
 - Once captains are chosen, update each team's `name` (same `teamId`,
   new `name`, via `POST /teams`)

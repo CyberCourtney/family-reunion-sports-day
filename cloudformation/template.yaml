@@ -239,6 +239,23 @@ Resources:
         - Key: project
           Value: family-reunion-sports-day
 
+  GetPlayersFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: sports-day-getPlayers
+      Runtime: nodejs22.x
+      Handler: getPlayers.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code: ../lambda
+      Timeout: 10
+      MemorySize: 128
+      Environment:
+        Variables:
+          PLAYERS_TABLE: !Ref PlayersTable
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
+
   # ---------- Cognito (captain auth) ----------
 
   UserPool:
@@ -350,6 +367,20 @@ Resources:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
         Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AddPlayerFunction.Arn}/invocations"
+
+  PlayersGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref PlayersResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      RequestParameters:
+        method.request.querystring.teamId: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetPlayersFunction.Arn}/invocations"
 
   TeamsPostMethod:
     Type: AWS::ApiGateway::Method
@@ -541,10 +572,19 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/GET/matches"
 
+  GetPlayersApiPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref GetPlayersFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/GET/players"
+
   ApiDeployment:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
       - PlayersPostMethod
+      - PlayersGetMethod
       - PlayersOptionsMethod
       - TeamsPostMethod
       - TeamsOptionsMethod

@@ -3,6 +3,8 @@ import { getTeamColor } from "../../lib/teamColors";
 interface TeamBadgeProps {
   color: string;
   size?: "sm" | "md" | "lg";
+  onClick?: () => void;
+  label?: string;
 }
 
 const SIZE_CLASSES = {
@@ -13,11 +15,27 @@ const SIZE_CLASSES = {
 
 // A simple colour dot identifying a team. Deliberately not text-labelled
 // here - pair with the team name separately wherever this is used.
-export function TeamBadge({ color, size = "md" }: TeamBadgeProps) {
+// Pass onClick (+ label, for screen readers) to make it open something,
+// e.g. a team's roster - omit both to keep it purely decorative.
+export function TeamBadge({ color, size = "md", onClick, label }: TeamBadgeProps) {
   const swatch = getTeamColor(color);
+  const dotClassName = `inline-block rounded-full ring-2 ring-white shadow-sm ${SIZE_CLASSES[size]}`;
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={label}
+        className={`${dotClassName} focus:outline-none focus:ring-2 focus:ring-accent hover:brightness-90 transition-[filter]`}
+        style={{ backgroundColor: swatch.hex }}
+      />
+    );
+  }
+
   return (
     <span
-      className={`inline-block rounded-full ring-2 ring-white shadow-sm ${SIZE_CLASSES[size]}`}
+      className={dotClassName}
       style={{ backgroundColor: swatch.hex }}
       aria-hidden="true"
     />

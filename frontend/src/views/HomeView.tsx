@@ -1,18 +1,22 @@
+import { useState } from "react";
 import { useTournamentPhase } from "../hooks/useTournamentPhase";
 import { useLeagueTable } from "../hooks/useLeagueTable";
 import { useMatches } from "../hooks/useMatches";
 import { TournamentHero } from "../components/hero/TournamentHero";
 import { ChampionBanner } from "../components/hero/ChampionBanner";
 import { TeamsShowcase } from "../components/teams/TeamsShowcase";
+import { RosterSheet } from "../components/teams/RosterSheet";
 import { TournamentBracket } from "../components/bracket/TournamentBracket";
 import { StandingsSection } from "../components/league-table/StandingsSection";
 import { Spinner } from "../components/ui/Spinner";
 import { Button } from "../components/ui/Button";
+import type { RosterTeamRef } from "../types/api";
 
 export function HomeView() {
   const { phase, now } = useTournamentPhase();
   const leagueQuery = useLeagueTable();
   const matchesQuery = useMatches();
+  const [rosterTeam, setRosterTeam] = useState<RosterTeamRef | null>(null);
 
   const isLoading = leagueQuery.isLoading || matchesQuery.isLoading;
   const isError = leagueQuery.isError || matchesQuery.isError;
@@ -49,12 +53,16 @@ export function HomeView() {
         <TournamentHero phase={phase === "complete" ? "active" : phase} now={now} />
       )}
 
-      {phase === "before" && <TeamsShowcase teams={standings} />}
+      {phase === "before" && (
+        <TeamsShowcase teams={standings} onSelectTeam={setRosterTeam} />
+      )}
 
       {/* Shown in every phase - TBD slots before the tournament give the
           homepage something real to look forward to, not just a
           countdown. */}
-      <TournamentBracket matches={matches} teamsById={teamsById} />
+      <TournamentBracket matches={matches} teamsById={teamsById} onSelectTeam={setRosterTeam} />
+
+      <RosterSheet team={rosterTeam} onClose={() => setRosterTeam(null)} />
 
       {phase === "active" && (
         <StandingsSection
