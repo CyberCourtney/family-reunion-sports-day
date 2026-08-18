@@ -214,7 +214,10 @@ change:
   one environment deployed straight from `main`.
 - Add CloudWatch alarms on Lambda error rates and API Gateway 5xxs, not
   just a cost-based Budget alarm. Cost and correctness are different
-  failure modes and need different alarms.
+  failure modes and need different alarms. The notification path is
+  already there for this: the Budget alarm publishes to a shared SNS
+  topic (`AlertsTopic`), so a new alarm just needs an `AlarmAction`
+  pointing at it, no new subscription to set up.
 - Enable DynamoDB point-in-time recovery and build proper seed/reset
   tooling instead of ad hoc CLI commands for demo/test data.
 - Move from CloudFormation to CDK/SAM once the certification-study

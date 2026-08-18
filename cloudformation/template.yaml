@@ -1,8 +1,17 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
   Family Reunion Sports Day - full application stack (DynamoDB, Lambda,
-  API Gateway, Cognito, S3 + CloudFront). Deployed with `aws cloudformation
-  package` + `aws cloudformation deploy` - see cloudformation/README.md.
+  API Gateway, Cognito, S3 + CloudFront, cost Budget). Deployed with
+  `aws cloudformation package` + `aws cloudformation deploy` - see
+  cloudformation/README.md.
+
+Parameters:
+
+  BudgetNotificationEmail:
+    Type: String
+    Default: courtney@cybercourtney.uk
+    Description: >-
+      Email address that receives the monthly cost Budget alerts.
 
 Resources:
 
@@ -287,6 +296,9 @@ Resources:
       EndpointConfiguration:
         Types:
           - REGIONAL
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
 
   CognitoAuthorizer:
     Type: AWS::ApiGateway::Authorizer
@@ -603,6 +615,9 @@ Resources:
           # invalidation after every deploy. Revisit once CI/CD exists.
           CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
           Compress: true
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
 
   SiteBucketPolicy:
     Type: AWS::S3::BucketPolicy
@@ -621,7 +636,97 @@ Resources:
               StringEquals:
                 AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${Distribution.Id}"
 
+  # ---------- Alerting ----------
+  # One shared SNS topic for cost and (later) operational alarms - the
+  # Budget below publishes to it, and any future CloudWatch alarm
+  # (Lambda error rate, API Gateway 5xxs) just adds this same topic as
+  # an AlarmAction, no new plumbing needed.
+
+  AlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: sports-day-alerts
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
+
+  AlertsTopicEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref AlertsTopic
+      Protocol: email
+      Endpoint: !Ref BudgetNotificationEmail
+
+  # Budgets is a separate service account, so it needs an explicit grant
+  # to publish here - CloudWatch alarms don't (same-account principals
+  # can publish to a topic they own without one).
+  AlertsTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref AlertsTopic
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowBudgetsToPublish
+            Effect: Allow
+            Principal:
+              Service: budgets.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref AlertsTopic
+            Condition:
+              StringEquals:
+                AWS:SourceAccount: !Ref AWS::AccountId
+
+  # ---------- Cost governance ----------
+  # A cheap safety net against unexpected cost from the public write
+  # routes - alerts on both actual and forecasted spend, independent of
+  # everything else in the stack. Scoped to this project's `project` tag
+  # (via CostFilters) so spend on unrelated things in the same AWS
+  # account doesn't trigger it - requires the `project` cost allocation
+  # tag activated in Billing (one-time, done outside CloudFormation), and
+  # every billable resource in this stack actually carrying that tag.
+
+  MonthlyCostBudget:
+    Type: AWS::Budgets::Budget
+    DependsOn: AlertsTopicPolicy
+    Properties:
+      Budget:
+        BudgetName: family-reunion-sports-day-monthly
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit:
+          Amount: 5
+          Unit: USD
+        CostFilters:
+          TagKeyValue:
+            - "user:project$family-reunion-sports-day"
+      NotificationsWithSubscribers:
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            Threshold: 80
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: SNS
+              Address: !Ref AlertsTopic
+        - Notification:
+            NotificationType: FORECASTED
+            ComparisonOperator: GREATER_THAN
+            Threshold: 100
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: SNS
+              Address: !Ref AlertsTopic
+
 Outputs:
+  AlertsTopicArn:
+    Description: >-
+      SNS topic for cost and operational alerts. Add this as an
+      AlarmAction on any future CloudWatch alarm to reuse the same
+      subscription instead of creating a new one.
+    Value: !Ref AlertsTopic
+
   ApiId:
     Description: >-
       API Gateway REST API ID. Used by CI to force a fresh stage

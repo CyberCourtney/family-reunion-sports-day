@@ -2,11 +2,26 @@
 
 `template.yaml` defines the entire app: DynamoDB, the Lambda execution
 role + 4 functions, API Gateway (with Cognito auth on the write routes),
-the Cognito user pool, and the S3 + CloudFront frontend hosting. Deployed
-with plain CloudFormation (no CDK/SAM) — one file, no build tooling
-beyond the AWS CLI.
+the Cognito user pool, the S3 + CloudFront frontend hosting, and a
+monthly cost Budget. Deployed with plain CloudFormation (no CDK/SAM) —
+one file, no build tooling beyond the AWS CLI.
 
 ## First-time setup
+
+The `family-reunion-sports-day-monthly` Budget alarm was originally
+created by hand in the console (see the engineering log), then brought
+into this template later. If you're deploying to an account that still
+has that manual one, delete it first — `AWS::Budgets::Budget` fails on
+create if a budget with the same name already exists:
+
+```bash
+aws budgets delete-budget \
+  --account-id <your-account-id> \
+  --budget-name family-reunion-sports-day-monthly \
+  --profile sports-day
+```
+
+On a brand-new account, skip this - there's nothing to delete.
 
 CloudFormation needs an S3 bucket to stage the Lambda code artifact
 before deploying (this is separate from the frontend's own bucket, which
@@ -52,8 +67,19 @@ then creates or updates the stack. Re-running both commands after
 changing a Lambda file or the template itself updates the stack in
 place — no teardown needed for routine changes.
 
+Cost and (eventually) operational alerts go through one shared SNS
+topic, `AlertsTopic`. On a first deploy, check the notification inbox
+for a "AWS Notification - Subscription Confirmation" email and click
+confirm — the subscription sits pending, and no alerts arrive, until
+that's done.
+
 `packaged.yaml` is generated output (git-ignored) — only `template.yaml`
 is the source of truth.
+
+`BudgetNotificationEmail` defaults to my own address, so no override is
+needed for this deployment. Deploying this stack elsewhere needs
+`--parameter-overrides BudgetNotificationEmail=<your-email>` added to
+the `deploy` command above.
 
 ## After deploying
 

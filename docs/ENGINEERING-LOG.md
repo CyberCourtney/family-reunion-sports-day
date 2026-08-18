@@ -466,6 +466,62 @@ all X for a given Y" queries, since there are no JOINs. A GSI on
     (documented above) was a real bug with the same *symptom* but a
     different, actual cause in application code. This one wasn't.
 
+- The Budget alarm (`family-reunion-sports-day-monthly`, created by hand
+  back when the project started) moved into `template.yaml` as an
+  `AWS::Budgets::Budget` resource, same $5/month limit and 80%
+  actual/100% forecasted thresholds as the original. It had been the one
+  piece of the stack still living outside CloudFormation. Notification
+  email is a new `BudgetNotificationEmail` parameter (defaults to my own
+  address) rather than hardcoded, so the template stays reusable.
+  Deploying to an account that still has the original manual budget
+  needs it deleted first — `AWS::Budgets::Budget` can't create one with a
+  name that's already taken.
+- Notification routing moved off a direct-email Budget subscriber onto a
+  shared `AlertsTopic` (`AWS::SNS::Topic`, `sports-day-alerts`): the
+  Budget now publishes to the topic, and the topic fans out to email via
+  an `AWS::SNS::Subscription`. Point of doing this now rather than later:
+  any future CloudWatch alarm (Lambda error rate, API Gateway 5xxs - see
+  "what I'd do differently") can reuse the same topic as an `AlarmAction`
+  with zero new plumbing, instead of every alarm wiring up its own
+  notification path. Needed one extra resource Budgets doesn't need for
+  direct-email subscribers: an `AWS::SNS::TopicPolicy` granting
+  `budgets.amazonaws.com` `sns:Publish` on the topic, since Budgets is a
+  separate service account and same-account principals (like CloudWatch)
+  don't need that same explicit grant. One operational note: SNS email
+  subscriptions require a manual "Confirm subscription" click in the
+  inbox after each deploy that creates the subscription fresh - it isn't
+  live until that's clicked.
+
+- Deployed the above: deleted the original manually-created
+  `family-reunion-sports-day-monthly` budget first (CloudFormation can't
+  create one with a name that's already taken), then ran
+  `cloudformation package` + `deploy`. `AlertsTopicArn`,
+  `MonthlyCostBudget`, and the SNS subscription (pending confirmation
+  until the email link is clicked) all came up as expected; existing
+  outputs (`ApiBaseUrl`, `CloudFrontDomainName`, `UserPoolId`, etc.)
+  didn't change, so no frontend redeploy was needed.
+- First real signal from the new budget: actual spend showed $11.43
+  against the $5 limit. Root cause wasn't this project — it was an
+  unrelated domain purchase on the same AWS account. `MonthlyCostBudget`
+  had no `CostFilters`, so it was tracking the whole account, not just
+  this stack. Fixed by scoping it to the existing `project` tag:
+  - Activated `project` as a cost allocation tag in Billing (via `aws ce
+    update-cost-allocation-tags-status`) — a tag has to be activated
+    there before Budgets can filter on it, separate from just applying
+    the tag to a resource. This is an account-level Billing setting, not
+    something CloudFormation manages, and can take up to 24h to fully
+    populate in Cost Explorer.
+  - Checked, via `cloudformation describe-type`, which resource types in
+    the stack actually support a `Tags` property before adding any —
+    `RestApi` and `Distribution` do (and were previously untagged, the
+    two most cost-relevant resources missing it); `OriginAccessControl`,
+    `SiteBucketPolicy`, and `UserPoolClient` don't support tags at all,
+    which is fine since none of them are separately billable.
+  - Added `CostFilters: TagKeyValue: ["user:project$family-reunion-sports-day"]`
+    to `MonthlyCostBudget`. Verified live after redeploying: `RestApi`
+    carries the `project` tag via `aws apigateway get-tags`, and the
+    budget's `CostFilters` match via `aws budgets describe-budget`.
+
 ## Next steps
 - Once captains are chosen, update each team's `name` (same `teamId`,
   new `name`, via `POST /teams`)
