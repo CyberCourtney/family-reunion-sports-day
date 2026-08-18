@@ -522,14 +522,20 @@ all X for a given Y" queries, since there are no JOINs. A GSI on
     carries the `project` tag via `aws apigateway get-tags`, and the
     budget's `CostFilters` match via `aws budgets describe-budget`.
 
+- Switched the CloudFront distribution's `DefaultCacheBehavior` from the
+  managed `CachingDisabled` policy to `CachingOptimized`. `CachingDisabled`
+  was deliberate back when every deploy was manual — it guaranteed no
+  stale edge copies, at the cost of CloudFront not actually caching
+  anything. Now that the GitHub Actions workflow invalidates the
+  distribution on every push to `main`, that guarantee comes from the
+  invalidation instead, so leaving real caching off no longer buys
+  anything - just latency.
+
 ## Next steps
 - Once captains are chosen, update each team's `name` (same `teamId`,
   new `name`, via `POST /teams`)
 - Custom domain (Route 53 + ACM cert) in front of the CloudFront
   distribution, once a domain is registered
-- Now that CI/CD invalidates the CloudFront cache on every deploy,
-  revisit the `CachingDisabled` policy. Enabling real caching is a
-  reasonable tightening.
 - Still deferred (Phase 4, needs more backend work than the above):
   player statistics beyond a headcount (would mean bringing back
   per-player attribution, which I dropped on purpose in favour of

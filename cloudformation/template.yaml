@@ -610,10 +610,11 @@ Resources:
           AllowedMethods:
             - GET
             - HEAD
-          # Managed "CachingDisabled" policy - deliberate while the
-          # frontend is still actively changing; avoids needing a cache
-          # invalidation after every deploy. Revisit once CI/CD exists.
-          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+          # Managed "CachingOptimized" policy - real edge caching is
+          # safe now that CI/CD invalidates the distribution on every
+          # deploy (see .github/workflows/deploy.yml), so staleness is
+          # handled by the invalidation, not by leaving caching off.
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
           Compress: true
       Tags:
         - Key: project

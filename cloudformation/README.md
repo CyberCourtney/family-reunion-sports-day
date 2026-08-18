@@ -113,10 +113,12 @@ aws cognito-idp admin-set-user-password --user-pool-id <UserPoolId> --username <
   environment (there's one family reunion a year, not separate
   dev/staging/prod tournaments), so adding that indirection would be
   complexity without a real use.
-- **CloudFront caching is disabled** (`CachePolicyId` = AWS managed
-  `CachingDisabled`) — now that the GitHub Actions workflow invalidates
-  the cache on every deploy, enabling real caching is a reasonable next
-  tightening, just not done yet.
+- **CloudFront uses the managed `CachingOptimized` policy** — it used to
+  run `CachingDisabled` while the frontend was actively changing, to
+  guarantee every deploy showed up immediately with no stale edge
+  copies. Switched once the GitHub Actions workflow started invalidating
+  the distribution on every deploy — staleness is handled by that
+  invalidation now, so there's no reason to leave real caching off.
 - **`Code: ../lambda`** on each `AWS::Lambda::Function` is a local path,
   not an S3 reference — that's the CloudFormation convention `package`
   looks for and rewrites; it isn't valid syntax once packaged.
