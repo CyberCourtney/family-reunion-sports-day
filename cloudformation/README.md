@@ -88,6 +88,23 @@ needed for this deployment. Deploying this stack elsewhere needs
 `--parameter-overrides BudgetNotificationEmail=<your-email>` added to
 the `deploy` command above.
 
+## After a manual deploy, refresh the API stage
+
+**Do this every time you deploy by hand.** Updating the stack can reset the
+API's `prod` stage to CloudFormation's original snapshot of the API, which
+only has the first routes. Anything added since returns a 403 "Missing
+Authentication Token" until the stage is refreshed. It happened to me on
+31 October 2026, and `/matches` and `/players` were broken for a few
+minutes. The CI workflow does this step automatically, which is why it only
+bites on manual deploys:
+
+```bash
+aws apigateway create-deployment \
+  --rest-api-id <ApiId from the stack outputs> \
+  --stage-name prod \
+  --region eu-west-2 --profile sports-day
+```
+
 ## After deploying
 
 ```bash
