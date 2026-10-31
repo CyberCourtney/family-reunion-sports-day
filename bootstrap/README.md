@@ -69,3 +69,19 @@ If a CI deploy fails with an `AccessDenied` for something like
 `cloudwatch:PutMetricAlarm`, that's what happened. Edit
 `deploy-role-policy.json`, apply it with `put-role-policy`, and re-run the
 workflow.
+
+## A known gap in the deploy role
+
+The role can create and delete the Lambda roles and change their
+permissions, but it can't change a role's trust policy or description
+(`iam:UpdateAssumeRolePolicy`, `iam:UpdateRole`). Nothing in the template
+does that today, so it hasn't mattered. If a future change edits either,
+the CI deploy will fail with an `AccessDenied`. The fix is to add those two
+actions to the `LambdaExecutionRoleManagement` statement and re-apply the
+policy. I left them out on purpose, since a narrower role is safer than a
+convenient one.
+
+The first CI deploy after the role was rebuilt had nothing to change, so
+it proved the pipeline works end to end but didn't exercise every new
+permission on a real change. The policy simulator checks are what vouch
+for those.
