@@ -55,12 +55,21 @@ trust policy only lets this repo's `main` branch assume it.
 - The widest bit is CloudFront (`*`). You can't scope it by ARN until the
   distribution exists, so that one stays broad.
 
-## The admin IAM user
+## How I log in (and the old admin IAM user)
 
-`sports-day-admin` is what I use for CLI deploys and one-off setup. It
-sits in a group with `AdministratorAccess`, has one long-lived access key,
-and **has no MFA**. This is the weakest spot in the account. More on that
-in the [security review](security-review.md).
+I deploy and do one-off setup from my own machine through **IAM Identity
+Center (SSO)**. `aws sso login --profile sports-day-sso` opens a browser,
+and I get credentials that expire after an hour. No access key sits on my
+laptop. The role behind it is `AdministratorAccess`, so it's still a very
+powerful login, just a short-lived one.
+
+The old way was an IAM user, `sports-day-admin`, in a group with
+`AdministratorAccess`, with one long-lived access key and no MFA. On
+31 October 2026 I **deactivated that key** (I confirmed it stopped working
+about 20 seconds later). The user and group still exist for now. I'm leaving
+the key switched off for a week to make sure nothing breaks, and then I'll
+delete the key, the user and the group. See the
+[security review](security-review.md) for the reasoning.
 
 ## Resource policies (who can call what)
 

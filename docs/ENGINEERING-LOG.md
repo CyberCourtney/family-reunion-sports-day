@@ -669,6 +669,28 @@ all X for a given Y" queries, since there are no JOINs. A GSI on
     putting the Lambdas in a VPC, including what I give up, and a diagram
     of the traffic flow (`docs/images/traffic-flow.svg`).
 
+- Followed up on the two open items from the security review (31 October
+  2026).
+  - **Admin user:** I set up SSO for the CLI (`aws configure sso`, profile
+    `sports-day-sso`) and checked it could do what the old access key did:
+    describe the stack, read the artifacts bucket, see the roles, Lambdas,
+    alarms and tables. Then I deactivated the old key (not deleted, so it's
+    reversible) using the SSO profile, so I wasn't cutting the branch I was
+    sitting on. The first check afterwards still showed the old key working.
+    It was just IAM taking about 20 seconds to catch up, and the second
+    check failed with `InvalidClientTokenId`, which is what I wanted. The
+    trade-off is that the SSO session only lasts an hour, so I log in more
+    often. I'll delete the key, the user and the group after a week of
+    nothing breaking.
+  - **Branch protection:** turned it on for `main`. Pull request required,
+    all three CI checks required, no force-pushes, no deleting the branch,
+    and it applies to admins too, since a gate I can walk round isn't one.
+    First I changed `ci.yml` to run on every pull request. It had a path
+    filter, and a required check that never starts (because only docs
+    changed) leaves the pull request stuck forever. I tried pushing
+    straight to `main` and it was rejected, and this log entry went in
+    through a pull request.
+
 ## Next steps
 - Once captains are chosen, update each team's `name` (same `teamId`,
   new `name`, via `POST /teams`)

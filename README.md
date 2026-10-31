@@ -66,6 +66,10 @@ Two GitHub Actions workflows:
 | [`ci.yml`](.github/workflows/ci.yml) | A pull request into `main` | Lints and builds the frontend (which also type-checks it), syntax-checks every Lambda, and runs `cfn-lint` on the template. Has **no AWS credentials at all**, so nothing in a PR can touch the live account. |
 | [`deploy.yml`](.github/workflows/deploy.yml) | A push to `main` (so, a merge) | Packages the template and Lambda code, deploys the CloudFormation stack, forces a fresh API Gateway stage deployment, builds the frontend, syncs it to S3, and invalidates the CloudFront cache. |
 
+`main` is protected. Changes have to go through a pull request and the
+three CI checks have to pass before it can merge, and that applies to me
+too. A direct push gets rejected.
+
 `deploy.yml` only runs if something under `cloudformation/`, `lambda/`,
 `frontend/` or the workflow itself changed, so a docs-only change doesn't
 redeploy anything.

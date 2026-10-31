@@ -19,8 +19,8 @@ new table from the chosen moment in time. That's what makes it safe to try.
 
 ## What you need
 
-- AWS CLI access to the account. Use the `sports-day` profile (or an admin
-  SSO login). Every command below assumes `--region eu-west-2`.
+- AWS CLI access to the account. Use the `sports-day-sso` profile (log in first
+  with `aws sso login --profile sports-day-sso`). Every command below assumes `--region eu-west-2`.
 - `jq` for the bulk copy (it's pre-installed on a Mac).
 - The name of the table that's wrong, and your best guess of **when it was
   last good**, in UTC.
@@ -29,7 +29,7 @@ Set these once so you can copy and paste:
 
 ```bash
 export AWS_REGION=eu-west-2
-export AWS_PROFILE=sports-day
+export AWS_PROFILE=sports-day-sso
 TABLE=Players                      # the table that's wrong
 GOOD_TIME=2026-10-31T13:29:31Z     # last moment it was correct, UTC
 ```

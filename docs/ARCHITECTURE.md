@@ -48,12 +48,13 @@ Noted as a future exercise, not something this app actually needs.)
 The full breakdown, with a table of every role, is in
 [IAM.md](IAM.md). The short version is that nothing shares permissions:
 
-- An admin IAM user, used only for deploying the stack by hand from the
-  CLI (`aws cloudformation deploy`, not console click-ops). I deleted the
-  root account's access keys once this was working. Root should never
-  hold day-to-day credentials. This user is the weakest identity in the
-  account, and the [security review](security-review.md) says why and what
-  I'd do about it.
+- My own admin login, through IAM Identity Center (SSO), used for
+  deploying the stack by hand from the CLI (`aws cloudformation deploy`,
+  not console click-ops). It gives short-lived credentials, with no access
+  key stored on my laptop. It replaced an old admin IAM user with a
+  long-lived key, which I've switched off. I deleted the root account's
+  access keys once this was working too. Root should never hold day-to-day
+  credentials. The [security review](security-review.md) has the details.
 - A GitHub Actions deploy role, assumed through OIDC (no stored keys),
   scoped to this project's resources and unable to edit itself.
 - One execution role per Lambda function, each allowed only the exact
