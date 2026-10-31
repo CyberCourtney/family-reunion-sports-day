@@ -18,7 +18,7 @@ exact configuration is kept here.
 | OIDC provider `token.actions.githubusercontent.com` | Lets GitHub Actions prove who it is to AWS, so there are no stored AWS keys | The role below depends on it |
 | IAM role `sports-day-github-actions-deploy` | What CI/CD assumes to deploy | It does the deploying, so it can't live in what it deploys |
 | S3 bucket `sports-day-cfn-artifacts-<account-id>` | Where `package` uploads the Lambda code and the template | CloudFormation needs it before the stack exists |
-| IAM user `sports-day-admin` (+ group `sports-day-admins`) | Manual CLI deploys and one-off setup | Needed to create the stack in the first place |
+| IAM user `sports-day-admin` (+ group `sports-day-admins`) | The old way of doing CLI deploys. Its access key was **deactivated on 31 Oct 2026**, and the user and group are due to be deleted. I use SSO now. | Needed to create the stack in the first place |
 | Cost allocation tag `project` (activated) | Lets the Budget filter by tag | An account-level Billing setting, not a stack resource |
 | Cognito users (the captains) | The people allowed to log in | They're data, created with `admin-create-user` |
 

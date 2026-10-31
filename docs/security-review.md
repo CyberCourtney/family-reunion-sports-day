@@ -13,6 +13,7 @@ identities and what each can do, see [IAM.md](IAM.md).
 4. The CI/CD deploy role
 5. The admin IAM user
 6. What's exposed to the public internet
+7. Who can change `main`
 
 ## What I found and fixed
 
@@ -45,6 +46,16 @@ policy to CloudFront (HSTS, no content sniffing, frame protection,
 referrer policy). I did **not** add a Content-Security-Policy, because a
 bad one breaks the site and I'd want to test it properly first.
 
+**Nothing stopped a bad change reaching `main`.** CI ran on pull requests
+but it was only advice, and `main` was unprotected, so anyone with access
+could push straight to it and trigger a deploy to the live account. Now
+`main` is protected: changes have to come through a pull request, the three
+CI checks have to pass, and force-pushes and deleting the branch are
+blocked. It applies to me too (admins included). I tested it by trying to
+push straight to `main`, and GitHub rejected it. There's no approval
+requirement, because I'm the only person here and can't approve my own pull
+requests.
+
 ## What I checked and found fine
 
 - **Secrets:** I scanned the working tree and the whole git history for AWS
@@ -65,15 +76,24 @@ bad one breaks the site and I'd want to test it properly first.
   API is throttled (50 a second, writes 5 a second). The read routes are
   public by design.
 
-## What I found and did NOT fix
+## What I found and haven't fully fixed
 
-**The admin IAM user is the weakest thing in the account.**
-`sports-day-admin` has full `AdministratorAccess` (through a group), one
-long-lived access key, and no MFA. If that key leaked, someone would own
-the account. I didn't change it because it's what I deploy with, and
-swapping it mid-project could lock me out. What I'd do: I already have an
-SSO admin login (IAM Identity Center), so I'd use that for everything,
-which gives short-lived credentials and MFA, then delete this user's key.
+**The admin IAM user was the weakest thing in the account. I've dealt
+with most of it.** `sports-day-admin` had full `AdministratorAccess`
+(through a group), one long-lived access key and no MFA. If that key had
+leaked, someone would have owned the account. I already had an SSO admin
+login (IAM Identity Center), so I set up a CLI profile for it, checked it
+could do everything the old key could (describe the stack, read the
+artifacts bucket, see the roles, Lambdas, alarms and tables), and then on
+31 October 2026 I deactivated the old key. It stopped working about 20
+seconds later. The key is switched off, not deleted, so I can switch it
+back on if something I haven't thought of breaks. I'll delete the key, the
+user and the group after a week of nothing going wrong.
+
+What this does and doesn't fix: nothing long-lived sits on my laptop any
+more, and the credentials I use now expire after an hour. It's still a
+full admin role, though, and whether it's protected by MFA depends on my
+Identity Center settings, which I haven't checked yet.
 
 **MFA is optional and can't be switched on.** The Cognito pool offers an
 authenticator-app MFA, but the frontend login form doesn't handle the MFA

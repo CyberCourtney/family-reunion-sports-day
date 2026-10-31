@@ -7,6 +7,15 @@ hosting, the CloudWatch alarms, dashboard and automated remediation, and a
 monthly cost Budget. Deployed with plain CloudFormation (no CDK/SAM), one
 file, no build tooling beyond the AWS CLI.
 
+## Logging in
+
+I use SSO, not an access key. Before any command below, log in (it opens
+a browser, and the session lasts an hour):
+
+```bash
+aws sso login --profile sports-day-sso
+```
+
 ## First-time setup
 
 The `family-reunion-sports-day-monthly` Budget alarm was originally
@@ -19,7 +28,7 @@ create if a budget with the same name already exists:
 aws budgets delete-budget \
   --account-id <your-account-id> \
   --budget-name family-reunion-sports-day-monthly \
-  --profile sports-day
+  --profile sports-day-sso
 ```
 
 On a brand-new account, skip this - there's nothing to delete.
@@ -33,7 +42,7 @@ aws s3api create-bucket \
   --bucket sports-day-cfn-artifacts-<your-account-id> \
   --region eu-west-2 \
   --create-bucket-configuration LocationConstraint=eu-west-2 \
-  --profile sports-day
+  --profile sports-day-sso
 ```
 
 ## Deploy
@@ -51,7 +60,7 @@ aws cloudformation package \
   --template-file template.yaml \
   --s3-bucket sports-day-cfn-artifacts-<your-account-id> \
   --output-template-file packaged.yaml \
-  --region eu-west-2 --profile sports-day
+  --region eu-west-2 --profile sports-day-sso
 
 aws cloudformation deploy \
   --template-file packaged.yaml \
@@ -59,7 +68,7 @@ aws cloudformation deploy \
   --stack-name sports-day \
   --capabilities CAPABILITY_NAMED_IAM \
   --tags project=family-reunion-sports-day \
-  --region eu-west-2 --profile sports-day
+  --region eu-west-2 --profile sports-day-sso
 ```
 
 `--s3-bucket` on `deploy` is there because the template is over 51,200
@@ -102,14 +111,14 @@ bites on manual deploys:
 aws apigateway create-deployment \
   --rest-api-id <ApiId from the stack outputs> \
   --stage-name prod \
-  --region eu-west-2 --profile sports-day
+  --region eu-west-2 --profile sports-day-sso
 ```
 
 ## After deploying
 
 ```bash
 aws cloudformation describe-stacks --stack-name sports-day \
-  --region eu-west-2 --profile sports-day --query 'Stacks[0].Outputs'
+  --region eu-west-2 --profile sports-day-sso --query 'Stacks[0].Outputs'
 ```
 
 Gives you `ApiBaseUrl`, `CloudFrontDomainName`, `UserPoolId`,
@@ -125,10 +134,10 @@ To add a captain:
 ```bash
 aws cognito-idp admin-create-user --user-pool-id <UserPoolId> --username <email> \
   --user-attributes Name=email,Value=<email> Name=email_verified,Value=true \
-  --message-action SUPPRESS --region eu-west-2 --profile sports-day
+  --message-action SUPPRESS --region eu-west-2 --profile sports-day-sso
 
 aws cognito-idp admin-set-user-password --user-pool-id <UserPoolId> --username <email> \
-  --password <temp-password> --permanent --region eu-west-2 --profile sports-day
+  --password <temp-password> --permanent --region eu-west-2 --profile sports-day-sso
 ```
 
 ## Notes on what's deliberately not parameterized
