@@ -1,0 +1,80 @@
+name: CI
+
+# Runs on every pull request into main. Deliberately has no AWS
+# credentials at all: it only lints, type-checks and builds, so nothing a
+# PR does here can touch the live account. Deploying is deploy.yml's job,
+# and only after a merge to main.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "cloudformation/**"
+      - "lambda/**"
+      - "frontend/**"
+      - ".github/workflows/**"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Frontend lint and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      # `npm run build` runs tsc first, so this is also the type-check.
+      - name: Type-check and build
+        run: npm run build
+
+  lambda:
+    name: Lambda syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # There are no unit tests for the Lambdas yet, so this only catches
+      # syntax errors. Better than shipping a typo to prod, not a
+      # substitute for real tests.
+      - name: Check every handler parses
+        run: |
+          for f in lambda/*.js; do
+            echo "checking $f"
+            node --check "$f"
+          done
+
+  template:
+    name: CloudFormation lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install cfn-lint
+
+      # W3002 is the "this path only works after `aws cloudformation
+      # package`" warning for `Code: ../lambda`, which is on purpose.
+      - name: cfn-lint
+        run: cfn-lint cloudformation/template.yaml --ignore-checks W3002

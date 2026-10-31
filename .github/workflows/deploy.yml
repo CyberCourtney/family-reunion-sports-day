@@ -56,9 +56,15 @@ jobs:
             --region "$AWS_REGION"
 
       - name: Deploy CloudFormation stack
+        env:
+          ARTIFACTS_BUCKET: sports-day-cfn-artifacts-${{ secrets.AWS_ACCOUNT_ID }}
+        # --s3-bucket is needed once the template passes 51,200 bytes,
+        # which is the most CloudFormation takes inline. It uploads the
+        # template to the artifacts bucket and deploys from there instead.
         run: |
           aws cloudformation deploy \
             --template-file cloudformation/packaged.yaml \
+            --s3-bucket "$ARTIFACTS_BUCKET" \
             --stack-name "$STACK_NAME" \
             --capabilities CAPABILITY_NAMED_IAM \
             --tags project=family-reunion-sports-day \

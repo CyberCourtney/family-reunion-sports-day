@@ -39,11 +39,13 @@ the polished end result.
 
 **AWS:** Lambda · API Gateway · DynamoDB · Cognito · S3 · CloudFront ·
 IAM (least privilege, OIDC federation) · CloudFormation · CloudTrail ·
-Budgets
+Budgets · CloudWatch · EventBridge · SNS
 
 **Practices:** infrastructure as code, CI/CD, keyless deployment auth (no
-long-lived AWS credentials anywhere), scoped IAM over admin-everywhere,
-and root-causing real incidents with real tooling instead of guessing.
+long-lived AWS credentials in the pipeline), scoped IAM over
+admin-everywhere, monitoring with automated remediation, tested backup
+and restore, and root-causing real incidents with real tooling instead of
+guessing.
 
 **Frontend:** React, TypeScript, Vite, TanStack Query, Tailwind CSS.
 
@@ -55,12 +57,41 @@ It's fully serverless, so there are no servers to patch and I only pay
 for what actually gets used. Everything above is defined as code in
 [`cloudformation/template.yaml`](cloudformation/template.yaml).
 
+## CI/CD
+
+Two GitHub Actions workflows:
+
+| Workflow | Runs when | What it does |
+|---|---|---|
+| [`ci.yml`](.github/workflows/ci.yml) | A pull request into `main` | Lints and builds the frontend (which also type-checks it), syntax-checks every Lambda, and runs `cfn-lint` on the template. Has **no AWS credentials at all**, so nothing in a PR can touch the live account. |
+| [`deploy.yml`](.github/workflows/deploy.yml) | A push to `main` (so, a merge) | Packages the template and Lambda code, deploys the CloudFormation stack, forces a fresh API Gateway stage deployment, builds the frontend, syncs it to S3, and invalidates the CloudFront cache. |
+
+`deploy.yml` only runs if something under `cloudformation/`, `lambda/`,
+`frontend/` or the workflow itself changed, so a docs-only change doesn't
+redeploy anything.
+
+It logs in to AWS with OIDC, not stored keys. GitHub proves who it is, and
+AWS hands out short-lived credentials to one specific role, only for this
+repo's `main` branch. The role is scoped to this project's resources and
+can't edit itself ([IAM.md](docs/IAM.md)).
+
+CloudFormation keeps the state of the stack itself, so there's no state
+file to store or lock. The few things that sit outside the stack on
+purpose (the deploy role, the artifacts bucket and so on) are listed in
+[`bootstrap/`](bootstrap/README.md).
+
 ## Want the details?
 
 - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**: the full reference.
   Data model, API contract, auth mechanics, security considerations (what's
   enforced and what's deliberately left out), and what I'd do differently
   for a real production deployment.
+- **[docs/IAM.md](docs/IAM.md)**, **[docs/security-review.md](docs/security-review.md)**:
+  who can do what and why, and what I found when I reviewed it.
+- **[docs/NETWORKING.md](docs/NETWORKING.md)**: how traffic flows, the
+  caching and throttling choices, and why the Lambdas aren't in a VPC.
+- **[docs/dr-runbook.md](docs/dr-runbook.md)**: how to restore the data
+  if something goes wrong, tested on a real failure.
 - **[docs/ENGINEERING-LOG.md](docs/ENGINEERING-LOG.md)**: the actual
   build process, in the order it happened, including three real production
   incidents I hit along the way and how I root-caused and fixed each one.

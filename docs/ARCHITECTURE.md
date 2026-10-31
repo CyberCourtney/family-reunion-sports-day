@@ -37,23 +37,32 @@ only this CloudFront distribution's ARN, not `Principal: *`.
 
 Lambda, kept out of a VPC on purpose. DynamoDB is reached over AWS's
 public API, not inside a VPC, so putting Lambda in a VPC here would just
-add cold-start/NAT overhead for no security benefit. (If I wanted to show
+add cost and complexity for no security benefit. The full reasoning, and
+what I give up by not using one, is in [NETWORKING.md](NETWORKING.md). (If I wanted to show
 off VPC/networking skills for real, I'd do it with something like RDS in
 a private subnet with a security group scoped to one specific Lambda.
 Noted as a future exercise, not something this app actually needs.)
 
 ## IAM
 
-Two separate identities, and they don't share scope on purpose:
+The full breakdown, with a table of every role, is in
+[IAM.md](IAM.md). The short version is that nothing shares permissions:
 
-- An admin IAM user, used only for deploying the stack via the CLI
-  (`aws cloudformation deploy`, not console click-ops). I deleted the
+- An admin IAM user, used only for deploying the stack by hand from the
+  CLI (`aws cloudformation deploy`, not console click-ops). I deleted the
   root account's access keys once this was working. Root should never
-  hold day-to-day credentials.
-- The Lambda execution role, scoped to only `AWSLambdaBasicExecutionRole`
-  (CloudWatch Logs) plus an inline policy granting read/write on exactly
-  the four project tables and their indexes. Not account-wide DynamoDB
-  access. Least privilege for the thing that's actually internet-facing.
+  hold day-to-day credentials. This user is the weakest identity in the
+  account, and the [security review](security-review.md) says why and what
+  I'd do about it.
+- A GitHub Actions deploy role, assumed through OIDC (no stored keys),
+  scoped to this project's resources and unable to edit itself.
+- One execution role per Lambda function, each allowed only the exact
+  DynamoDB calls that function makes. The public read endpoints can't
+  write anything. Not account-wide DynamoDB access, and not one shared
+  role either. Least privilege for the thing that's actually
+  internet-facing.
+- A separate role for the remediation Lambda, which can change one API
+  stage's throttling and publish to one SNS topic.
 
 ## Data model (DynamoDB)
 
@@ -63,6 +72,10 @@ Two separate identities, and they don't share scope on purpose:
 | `Team` | `teamId` | | `teamId` is the fixed color slug (`green`/`red`/`blue`/`yellow`). `name` can be changed later (say, once captains pick real team names) by re-submitting `POST /teams` with the same `teamId`. DynamoDB `PutItem` overwrites in place, so there's no separate "edit" endpoint. |
 | `Match` | `matchId` | | |
 | `ScoreEvent` | `eventId` | `matchId-index`, `playerId-index` | Logs each individual scoring moment instead of just a final score, so per-player stats (home runs, say) could be computed from raw events instead of being locked into one pre-aggregated number. Not used by any Lambda yet. It's there for a future "log a scoring event" feature. |
+
+All four tables have point-in-time recovery switched on, so any of them
+can be rolled back to any second in the last 35 days. How to do that, and
+a real drill I ran, is in the [restore runbook](dr-runbook.md).
 
 GSIs exist because DynamoDB has no JOINs. A GSI on `teamId` is what makes
 "all players on team X" an actual queryable operation instead of a full
@@ -216,14 +229,14 @@ change:
   available.
 - Add a staging environment and a proper promotion pipeline, instead of
   one environment deployed straight from `main`.
-- Add CloudWatch alarms on Lambda error rates and API Gateway 5xxs, not
-  just a cost-based Budget alarm. Cost and correctness are different
-  failure modes and need different alarms. The notification path is
-  already there for this: the Budget alarm publishes to a shared SNS
-  topic (`AlertsTopic`), so a new alarm just needs an `AlarmAction`
-  pointing at it, no new subscription to set up.
-- Enable DynamoDB point-in-time recovery and build proper seed/reset
-  tooling instead of ad hoc CLI commands for demo/test data.
+- Put WAF with rate-based rules in front of the API. The throttling
+  I have is global to the stage, not per person, so one noisy user can
+  slow everyone down. The CloudWatch alarms and the traffic-spike
+  remediation are built (see the engineering log), but they only cut the
+  limit for everybody at once.
+- Build proper seed/reset tooling instead of ad hoc CLI commands for
+  demo/test data. (Point-in-time recovery is already on, see the
+  [restore runbook](dr-runbook.md).)
 - Move from CloudFormation to CDK/SAM once the certification-study
   reason for plain CloudFormation stops being the priority. Plain
   CloudFormation was a deliberate learning choice here, not a claim

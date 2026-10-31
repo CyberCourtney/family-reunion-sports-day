@@ -22,6 +22,12 @@ Resources:
     Properties:
       TableName: Players
       BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      # Stops the table being deleted by accident, by the console, the CLI
+      # or a stack teardown. To delete one on purpose, switch this off
+      # first. See docs/dr-runbook.md.
+      DeletionProtectionEnabled: true
       AttributeDefinitions:
         - AttributeName: playerId
           AttributeType: S
@@ -46,6 +52,12 @@ Resources:
     Properties:
       TableName: Team
       BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      # Stops the table being deleted by accident, by the console, the CLI
+      # or a stack teardown. To delete one on purpose, switch this off
+      # first. See docs/dr-runbook.md.
+      DeletionProtectionEnabled: true
       AttributeDefinitions:
         - AttributeName: teamId
           AttributeType: S
@@ -61,6 +73,12 @@ Resources:
     Properties:
       TableName: Match
       BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      # Stops the table being deleted by accident, by the console, the CLI
+      # or a stack teardown. To delete one on purpose, switch this off
+      # first. See docs/dr-runbook.md.
+      DeletionProtectionEnabled: true
       AttributeDefinitions:
         - AttributeName: matchId
           AttributeType: S
@@ -76,6 +94,12 @@ Resources:
     Properties:
       TableName: ScoreEvent
       BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      # Stops the table being deleted by accident, by the console, the CLI
+      # or a stack teardown. To delete one on purpose, switch this off
+      # first. See docs/dr-runbook.md.
+      DeletionProtectionEnabled: true
       AttributeDefinitions:
         - AttributeName: eventId
           AttributeType: S
@@ -103,15 +127,16 @@ Resources:
         - Key: project
           Value: family-reunion-sports-day
 
-  # ---------- Lambda execution role ----------
-  # Scoped to only this project's tables + CloudWatch Logs - not
-  # account-wide DynamoDB access. Separate from the sports-day-admin
-  # IAM user used to deploy this stack.
+  # ---------- Lambda execution roles ----------
+  # One role per function, each allowed only the exact DynamoDB actions
+  # that function makes, on only the tables it touches, plus writing to
+  # its own log group. No shared role, no wildcards. Separate from the
+  # sports-day-admin IAM user used to deploy this stack.
 
-  LambdaExecutionRole:
+  AddPlayerRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: sports-day-lambda-role
+      RoleName: sports-day-fn-addPlayer-role
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -119,31 +144,203 @@ Resources:
             Principal:
               Service: lambda.amazonaws.com
             Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
-        - PolicyName: sports-day-dynamodb-access
+        - PolicyName: sports-day-addPlayer-access
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
-              - Sid: SportsDayTableAccess
+              - Sid: WriteOwnLogs
                 Effect: Allow
                 Action:
-                  - dynamodb:GetItem
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sports-day-addPlayer"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sports-day-addPlayer:*"
+              - Sid: TableAccess
+                Effect: Allow
+                Action:
                   - dynamodb:PutItem
-                  - dynamodb:UpdateItem
-                  - dynamodb:DeleteItem
-                  - dynamodb:Query
-                  - dynamodb:Scan
                 Resource:
                   - !GetAtt PlayersTable.Arn
-                  - !Sub "${PlayersTable.Arn}/index/*"
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
+
+  CreateTeamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: sports-day-fn-createTeam-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: sports-day-createTeam-access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: WriteOwnLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sports-day-createTeam"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sports-day-createTeam:*"
+              - Sid: TableAccess
+                Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                Resource:
                   - !GetAtt TeamTable.Arn
-                  - !Sub "${TeamTable.Arn}/index/*"
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
+
+  SubmitMatchScoreRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: sports-day-fn-submitMatchScore-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: sports-day-submitMatchScore-access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: WriteOwnLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sports-day-submitMatchScore"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sports-day-submitMatchScore:*"
+              - Sid: TableAccess
+                Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                Resource:
                   - !GetAtt MatchTable.Arn
-                  - !Sub "${MatchTable.Arn}/index/*"
-                  - !GetAtt ScoreEventTable.Arn
-                  - !Sub "${ScoreEventTable.Arn}/index/*"
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
+
+  GetLeagueTableRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: sports-day-fn-getLeagueTable-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: sports-day-getLeagueTable-access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: WriteOwnLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sports-day-getLeagueTable"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sports-day-getLeagueTable:*"
+              - Sid: TableAccess
+                Effect: Allow
+                Action:
+                  - dynamodb:Scan
+                Resource:
+                  - !GetAtt TeamTable.Arn
+                  - !GetAtt MatchTable.Arn
+                  - !GetAtt PlayersTable.Arn
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
+
+  GetMatchesRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: sports-day-fn-getMatches-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: sports-day-getMatches-access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: WriteOwnLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sports-day-getMatches"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sports-day-getMatches:*"
+              - Sid: TableAccess
+                Effect: Allow
+                Action:
+                  - dynamodb:Scan
+                Resource:
+                  - !GetAtt MatchTable.Arn
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
+
+  GetPlayersRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: sports-day-fn-getPlayers-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: sports-day-getPlayers-access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: WriteOwnLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sports-day-getPlayers"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sports-day-getPlayers:*"
+              - Sid: TableAccess
+                Effect: Allow
+                Action:
+                  - dynamodb:Query
+                Resource:
+                  - !Sub "${PlayersTable.Arn}/index/teamId-index"
       Tags:
         - Key: project
           Value: family-reunion-sports-day
@@ -158,7 +355,7 @@ Resources:
       FunctionName: sports-day-addPlayer
       Runtime: nodejs22.x
       Handler: addPlayer.handler
-      Role: !GetAtt LambdaExecutionRole.Arn
+      Role: !GetAtt AddPlayerRole.Arn
       Code: ../lambda
       Timeout: 10
       MemorySize: 128
@@ -175,7 +372,7 @@ Resources:
       FunctionName: sports-day-createTeam
       Runtime: nodejs22.x
       Handler: createTeam.handler
-      Role: !GetAtt LambdaExecutionRole.Arn
+      Role: !GetAtt CreateTeamRole.Arn
       Code: ../lambda
       Timeout: 10
       MemorySize: 128
@@ -192,7 +389,7 @@ Resources:
       FunctionName: sports-day-submitMatchScore
       Runtime: nodejs22.x
       Handler: submitMatchScore.handler
-      Role: !GetAtt LambdaExecutionRole.Arn
+      Role: !GetAtt SubmitMatchScoreRole.Arn
       Code: ../lambda
       Timeout: 10
       MemorySize: 128
@@ -209,7 +406,7 @@ Resources:
       FunctionName: sports-day-getLeagueTable
       Runtime: nodejs22.x
       Handler: getLeagueTable.handler
-      Role: !GetAtt LambdaExecutionRole.Arn
+      Role: !GetAtt GetLeagueTableRole.Arn
       Code: ../lambda
       Timeout: 10
       MemorySize: 128
@@ -228,7 +425,7 @@ Resources:
       FunctionName: sports-day-getMatches
       Runtime: nodejs22.x
       Handler: getMatches.handler
-      Role: !GetAtt LambdaExecutionRole.Arn
+      Role: !GetAtt GetMatchesRole.Arn
       Code: ../lambda
       Timeout: 10
       MemorySize: 128
@@ -245,7 +442,7 @@ Resources:
       FunctionName: sports-day-getPlayers
       Runtime: nodejs22.x
       Handler: getPlayers.handler
-      Role: !GetAtt LambdaExecutionRole.Arn
+      Role: !GetAtt GetPlayersRole.Arn
       Code: ../lambda
       Timeout: 10
       MemorySize: 128
@@ -297,7 +494,10 @@ Resources:
       PreventUserExistenceErrors: ENABLED
       AccessTokenValidity: 60
       IdTokenValidity: 60
-      RefreshTokenValidity: 30
+      # The frontend never uses the refresh token (a captain just logs in
+      # again after the hour is up), so there's no reason to leave one
+      # valid for the 30 day default. 1 day is the shortest practical.
+      RefreshTokenValidity: 1
       TokenValidityUnits:
         AccessToken: minutes
         IdToken: minutes
@@ -602,6 +802,27 @@ Resources:
       StageName: prod
       RestApiId: !Ref RestApi
       DeploymentId: !Ref ApiDeployment
+      # Baseline for every route. The remediation Lambda below tightens
+      # this during a traffic spike and puts it back afterwards.
+      MethodSettings:
+        - ResourcePath: "/*"
+          HttpMethod: "*"
+          ThrottlingRateLimit: 50
+          ThrottlingBurstLimit: 100
+        # Writes are only ever used by the four captains, so they get a
+        # much lower ceiling than the public read routes.
+        - ResourcePath: "/players"
+          HttpMethod: POST
+          ThrottlingRateLimit: 5
+          ThrottlingBurstLimit: 10
+        - ResourcePath: "/teams"
+          HttpMethod: POST
+          ThrottlingRateLimit: 5
+          ThrottlingBurstLimit: 10
+        - ResourcePath: "/matches"
+          HttpMethod: POST
+          ThrottlingRateLimit: 5
+          ThrottlingBurstLimit: 10
 
   # ---------- Frontend hosting: S3 (private) + CloudFront (OAC) ----------
 
@@ -650,15 +871,49 @@ Resources:
           AllowedMethods:
             - GET
             - HEAD
-          # Managed "CachingOptimized" policy - real edge caching is
-          # safe now that CI/CD invalidates the distribution on every
-          # deploy (see .github/workflows/deploy.yml), so staleness is
-          # handled by the invalidation, not by leaving caching off.
-          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          CachePolicyId: !Ref ShortCachePolicy
+          # Managed "SecurityHeadersPolicy": HSTS, no content sniffing,
+          # frame protection and a referrer policy on every response.
+          ResponseHeadersPolicyId: 67f7725c-6f97-4210-82d7-5512b31e9d03
           Compress: true
+        CacheBehaviors:
+          # Vite content-hashes everything in /assets/, so these can be
+          # cached for a long time. Managed "CachingOptimized" policy.
+          - PathPattern: /assets/*
+            TargetOriginId: sports-day-s3-origin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+            ResponseHeadersPolicyId: 67f7725c-6f97-4210-82d7-5512b31e9d03
+            Compress: true
       Tags:
         - Key: project
           Value: family-reunion-sports-day
+
+  # index.html (and anything else outside /assets/) gets a short TTL, so
+  # even if a deploy's invalidation were ever missed, visitors would see
+  # the new version within a minute. The hashed files under /assets/ never
+  # change under the same name, so those use the long-lived managed policy.
+  ShortCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: sports-day-short-ttl
+        Comment: Short TTL for index.html and other unhashed files
+        DefaultTTL: 60
+        MinTTL: 0
+        MaxTTL: 300
+        ParametersInCacheKeyAndForwardedToOrigin:
+          EnableAcceptEncodingGzip: true
+          EnableAcceptEncodingBrotli: true
+          CookiesConfig:
+            CookieBehavior: none
+          HeadersConfig:
+            HeaderBehavior: none
+          QueryStringsConfig:
+            QueryStringBehavior: none
 
   SiteBucketPolicy:
     Type: AWS::S3::BucketPolicy
@@ -759,6 +1014,565 @@ Resources:
           Subscribers:
             - SubscriptionType: SNS
               Address: !Ref AlertsTopic
+
+  # ---------- Monitoring ----------
+  # Every alarm publishes to AlertsTopic. Lambda "Errors" only counts
+  # unhandled exceptions, and these functions catch their own errors and
+  # return a 500 response instead, so those are caught by the API Gateway
+  # 5XX alarm, not the Lambda ones. Both are needed.
+
+  AddPlayerErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: sports-day-addPlayer-errors
+      AlarmDescription: addPlayer Lambda threw an unhandled error
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref AddPlayerFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertsTopic
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
+
+  CreateTeamErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: sports-day-createTeam-errors
+      AlarmDescription: createTeam Lambda threw an unhandled error
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref CreateTeamFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertsTopic
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
+
+  SubmitMatchScoreErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: sports-day-submitMatchScore-errors
+      AlarmDescription: submitMatchScore Lambda threw an unhandled error
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref SubmitMatchScoreFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertsTopic
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
+
+  GetLeagueTableErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: sports-day-getLeagueTable-errors
+      AlarmDescription: getLeagueTable Lambda threw an unhandled error
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref GetLeagueTableFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertsTopic
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
+
+  GetMatchesErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: sports-day-getMatches-errors
+      AlarmDescription: getMatches Lambda threw an unhandled error
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref GetMatchesFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertsTopic
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
+
+  GetPlayersErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: sports-day-getPlayers-errors
+      AlarmDescription: getPlayers Lambda threw an unhandled error
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref GetPlayersFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertsTopic
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
+
+  # No FunctionName dimension on purpose: one alarm on the region-wide
+  # throttle count instead of six, since throttling is an account-level
+  # concurrency limit and not something a single function causes.
+  LambdaThrottlesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: sports-day-lambda-throttles
+      AlarmDescription: Lambda invocations were throttled in this region
+      Namespace: AWS/Lambda
+      MetricName: Throttles
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertsTopic
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
+
+  # The tables are on-demand, so there's no provisioned throughput to
+  # alarm against. Throttle events are the signal that matters. Skipping
+  # ScoreEvent, nothing reads or writes it yet.
+  PlayersReadThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: sports-day-Players-read-throttles
+      AlarmDescription: Players table read requests were throttled
+      Namespace: AWS/DynamoDB
+      MetricName: ReadThrottleEvents
+      Dimensions:
+        - Name: TableName
+          Value: !Ref PlayersTable
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertsTopic
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
+
+  PlayersWriteThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: sports-day-Players-write-throttles
+      AlarmDescription: Players table write requests were throttled
+      Namespace: AWS/DynamoDB
+      MetricName: WriteThrottleEvents
+      Dimensions:
+        - Name: TableName
+          Value: !Ref PlayersTable
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertsTopic
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
+
+  TeamReadThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: sports-day-Team-read-throttles
+      AlarmDescription: Team table read requests were throttled
+      Namespace: AWS/DynamoDB
+      MetricName: ReadThrottleEvents
+      Dimensions:
+        - Name: TableName
+          Value: !Ref TeamTable
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertsTopic
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
+
+  TeamWriteThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: sports-day-Team-write-throttles
+      AlarmDescription: Team table write requests were throttled
+      Namespace: AWS/DynamoDB
+      MetricName: WriteThrottleEvents
+      Dimensions:
+        - Name: TableName
+          Value: !Ref TeamTable
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertsTopic
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
+
+  MatchReadThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: sports-day-Match-read-throttles
+      AlarmDescription: Match table read requests were throttled
+      Namespace: AWS/DynamoDB
+      MetricName: ReadThrottleEvents
+      Dimensions:
+        - Name: TableName
+          Value: !Ref MatchTable
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertsTopic
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
+
+  MatchWriteThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: sports-day-Match-write-throttles
+      AlarmDescription: Match table write requests were throttled
+      Namespace: AWS/DynamoDB
+      MetricName: WriteThrottleEvents
+      Dimensions:
+        - Name: TableName
+          Value: !Ref MatchTable
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertsTopic
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
+
+  Api5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: sports-day-api-5xx
+      AlarmDescription: API Gateway returned a 5XX, includes handled errors the Lambda alarms miss
+      Namespace: AWS/ApiGateway
+      MetricName: 5XXError
+      Dimensions:
+        - Name: ApiName
+          Value: sports-day-api
+        - Name: Stage
+          Value: prod
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertsTopic
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
+
+  # 3000 requests in 5 minutes is about 10 a second sustained. A family
+  # tournament never gets near that, so this is either abuse or a bug.
+  # This is the alarm the remediation below reacts to.
+  ApiTrafficSpikeAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: sports-day-api-traffic-spike
+      AlarmDescription: Unusually high request volume on the API
+      Namespace: AWS/ApiGateway
+      MetricName: Count
+      Dimensions:
+        - Name: ApiName
+          Value: sports-day-api
+        - Name: Stage
+          Value: prod
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 3000
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlertsTopic
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
+
+  # ---------- Automated remediation ----------
+  # CloudWatch alarms can't invoke a Lambda directly, so EventBridge
+  # watches the traffic-spike alarm's state changes and calls this. On
+  # ALARM it tightens the API stage's throttling, on OK it puts the
+  # normal limits back.
+
+  RemediationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: sports-day-remediation-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: sports-day-remediation-access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: WriteOwnLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sports-day-remediateApiTraffic"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/sports-day-remediateApiTraffic:*"
+              - Sid: UpdateProdStageThrottling
+                Effect: Allow
+                Action: apigateway:PATCH
+                Resource: !Sub "arn:aws:apigateway:${AWS::Region}::/restapis/${RestApi}/stages/prod"
+              - Sid: PublishAlerts
+                Effect: Allow
+                Action: sns:Publish
+                Resource: !Ref AlertsTopic
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
+
+  RemediationFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: sports-day-remediateApiTraffic
+      Runtime: nodejs22.x
+      Handler: remediateApiTraffic.handler
+      Role: !GetAtt RemediationRole.Arn
+      Code: ../lambda
+      Timeout: 15
+      MemorySize: 128
+      Environment:
+        Variables:
+          API_ID: !Ref RestApi
+          STAGE_NAME: prod
+          ALERTS_TOPIC_ARN: !Ref AlertsTopic
+          NORMAL_RATE_LIMIT: "50"
+          NORMAL_BURST_LIMIT: "100"
+          CLAMPED_RATE_LIMIT: "5"
+          CLAMPED_BURST_LIMIT: "10"
+      Tags:
+        - Key: project
+          Value: family-reunion-sports-day
+
+  TrafficSpikeRemediationRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: sports-day-traffic-spike-remediation
+      Description: Run the remediation Lambda when the traffic-spike alarm changes state
+      EventPattern:
+        source:
+          - aws.cloudwatch
+        detail-type:
+          - CloudWatch Alarm State Change
+        detail:
+          alarmName:
+            - sports-day-api-traffic-spike
+          state:
+            value:
+              - ALARM
+              - OK
+      Targets:
+        - Id: remediation-lambda
+          Arn: !GetAtt RemediationFunction.Arn
+
+  RemediationEventPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref RemediationFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt TrafficSpikeRemediationRule.Arn
+
+  # ---------- Dashboard ----------
+
+  Dashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: sports-day
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "alarm", "x": 0, "y": 0, "width": 24, "height": 4,
+              "properties": {
+                "title": "Alarm status",
+                "alarms": [
+                  "${AddPlayerErrorsAlarm.Arn}",
+                  "${CreateTeamErrorsAlarm.Arn}",
+                  "${SubmitMatchScoreErrorsAlarm.Arn}",
+                  "${GetLeagueTableErrorsAlarm.Arn}",
+                  "${GetMatchesErrorsAlarm.Arn}",
+                  "${GetPlayersErrorsAlarm.Arn}",
+                  "${LambdaThrottlesAlarm.Arn}",
+                  "${PlayersReadThrottleAlarm.Arn}",
+                  "${PlayersWriteThrottleAlarm.Arn}",
+                  "${TeamReadThrottleAlarm.Arn}",
+                  "${TeamWriteThrottleAlarm.Arn}",
+                  "${MatchReadThrottleAlarm.Arn}",
+                  "${MatchWriteThrottleAlarm.Arn}",
+                  "${Api5xxAlarm.Arn}",
+                  "${ApiTrafficSpikeAlarm.Arn}"
+                ]
+              }
+            },
+            {
+              "type": "metric", "x": 0, "y": 4, "width": 12, "height": 6,
+              "properties": {
+                "title": "API requests, 4XX and 5XX",
+                "region": "${AWS::Region}", "view": "timeSeries", "stat": "Sum", "period": 300,
+                "metrics": [
+                  ["AWS/ApiGateway", "Count", "ApiName", "sports-day-api", "Stage", "prod"],
+                  ["AWS/ApiGateway", "4XXError", "ApiName", "sports-day-api", "Stage", "prod"],
+                  ["AWS/ApiGateway", "5XXError", "ApiName", "sports-day-api", "Stage", "prod"]
+                ]
+              }
+            },
+            {
+              "type": "metric", "x": 12, "y": 4, "width": 12, "height": 6,
+              "properties": {
+                "title": "API latency (p95, ms)",
+                "region": "${AWS::Region}", "view": "timeSeries", "stat": "p95", "period": 300,
+                "metrics": [
+                  ["AWS/ApiGateway", "Latency", "ApiName", "sports-day-api", "Stage", "prod"]
+                ]
+              }
+            },
+            {
+              "type": "metric", "x": 0, "y": 10, "width": 12, "height": 6,
+              "properties": {
+                "title": "Lambda invocations",
+                "region": "${AWS::Region}", "view": "timeSeries", "stat": "Sum", "period": 300,
+                "metrics": [
+                  ["AWS/Lambda", "Invocations", "FunctionName", "${AddPlayerFunction}"],
+                  ["AWS/Lambda", "Invocations", "FunctionName", "${CreateTeamFunction}"],
+                  ["AWS/Lambda", "Invocations", "FunctionName", "${SubmitMatchScoreFunction}"],
+                  ["AWS/Lambda", "Invocations", "FunctionName", "${GetLeagueTableFunction}"],
+                  ["AWS/Lambda", "Invocations", "FunctionName", "${GetMatchesFunction}"],
+                  ["AWS/Lambda", "Invocations", "FunctionName", "${GetPlayersFunction}"]
+                ]
+              }
+            },
+            {
+              "type": "metric", "x": 12, "y": 10, "width": 12, "height": 6,
+              "properties": {
+                "title": "Lambda errors and throttles",
+                "region": "${AWS::Region}", "view": "timeSeries", "stat": "Sum", "period": 300,
+                "metrics": [
+                  ["AWS/Lambda", "Errors", "FunctionName", "${AddPlayerFunction}"],
+                  ["AWS/Lambda", "Errors", "FunctionName", "${CreateTeamFunction}"],
+                  ["AWS/Lambda", "Errors", "FunctionName", "${SubmitMatchScoreFunction}"],
+                  ["AWS/Lambda", "Errors", "FunctionName", "${GetLeagueTableFunction}"],
+                  ["AWS/Lambda", "Errors", "FunctionName", "${GetMatchesFunction}"],
+                  ["AWS/Lambda", "Errors", "FunctionName", "${GetPlayersFunction}"],
+                  ["AWS/Lambda", "Throttles"]
+                ]
+              }
+            },
+            {
+              "type": "metric", "x": 0, "y": 16, "width": 12, "height": 6,
+              "properties": {
+                "title": "DynamoDB consumed capacity",
+                "region": "${AWS::Region}", "view": "timeSeries", "stat": "Sum", "period": 300,
+                "metrics": [
+                  ["AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", "${PlayersTable}"],
+                  ["AWS/DynamoDB", "ConsumedWriteCapacityUnits", "TableName", "${PlayersTable}"],
+                  ["AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", "${TeamTable}"],
+                  ["AWS/DynamoDB", "ConsumedWriteCapacityUnits", "TableName", "${TeamTable}"],
+                  ["AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", "${MatchTable}"],
+                  ["AWS/DynamoDB", "ConsumedWriteCapacityUnits", "TableName", "${MatchTable}"]
+                ]
+              }
+            },
+            {
+              "type": "metric", "x": 12, "y": 16, "width": 12, "height": 6,
+              "properties": {
+                "title": "DynamoDB throttle events",
+                "region": "${AWS::Region}", "view": "timeSeries", "stat": "Sum", "period": 300,
+                "metrics": [
+                  ["AWS/DynamoDB", "ReadThrottleEvents", "TableName", "${PlayersTable}"],
+                  ["AWS/DynamoDB", "WriteThrottleEvents", "TableName", "${PlayersTable}"],
+                  ["AWS/DynamoDB", "ReadThrottleEvents", "TableName", "${TeamTable}"],
+                  ["AWS/DynamoDB", "WriteThrottleEvents", "TableName", "${TeamTable}"],
+                  ["AWS/DynamoDB", "ReadThrottleEvents", "TableName", "${MatchTable}"],
+                  ["AWS/DynamoDB", "WriteThrottleEvents", "TableName", "${MatchTable}"]
+                ]
+              }
+            }
+          ]
+        }
 
 Outputs:
   AlertsTopicArn:

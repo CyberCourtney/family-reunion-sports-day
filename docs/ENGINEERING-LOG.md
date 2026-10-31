@@ -474,7 +474,7 @@ all X for a given Y" queries, since there are no JOINs. A GSI on
   email is a new `BudgetNotificationEmail` parameter (defaults to my own
   address) rather than hardcoded, so the template stays reusable.
   Deploying to an account that still has the original manual budget
-  needs it deleted first — `AWS::Budgets::Budget` can't create one with a
+  needs it deleted first, because `AWS::Budgets::Budget` can't create one with a
   name that's already taken.
 - Notification routing moved off a direct-email Budget subscriber onto a
   shared `AlertsTopic` (`AWS::SNS::Topic`, `sports-day-alerts`): the
@@ -501,18 +501,18 @@ all X for a given Y" queries, since there are no JOINs. A GSI on
   outputs (`ApiBaseUrl`, `CloudFrontDomainName`, `UserPoolId`, etc.)
   didn't change, so no frontend redeploy was needed.
 - First real signal from the new budget: actual spend showed $11.43
-  against the $5 limit. Root cause wasn't this project — it was an
+  against the $5 limit. Root cause wasn't this project. It was an
   unrelated domain purchase on the same AWS account. `MonthlyCostBudget`
   had no `CostFilters`, so it was tracking the whole account, not just
   this stack. Fixed by scoping it to the existing `project` tag:
   - Activated `project` as a cost allocation tag in Billing (via `aws ce
-    update-cost-allocation-tags-status`) — a tag has to be activated
+    update-cost-allocation-tags-status`). A tag has to be activated
     there before Budgets can filter on it, separate from just applying
     the tag to a resource. This is an account-level Billing setting, not
     something CloudFormation manages, and can take up to 24h to fully
     populate in Cost Explorer.
   - Checked, via `cloudformation describe-type`, which resource types in
-    the stack actually support a `Tags` property before adding any —
+    the stack actually support a `Tags` property before adding any:
     `RestApi` and `Distribution` do (and were previously untagged, the
     two most cost-relevant resources missing it); `OriginAccessControl`,
     `SiteBucketPolicy`, and `UserPoolClient` don't support tags at all,
@@ -524,7 +524,7 @@ all X for a given Y" queries, since there are no JOINs. A GSI on
 
 - Switched the CloudFront distribution's `DefaultCacheBehavior` from the
   managed `CachingDisabled` policy to `CachingOptimized`. `CachingDisabled`
-  was deliberate back when every deploy was manual — it guaranteed no
+  was deliberate back when every deploy was manual. It guaranteed no
   stale edge copies, at the cost of CloudFront not actually caching
   anything. Now that the GitHub Actions workflow invalidates the
   distribution on every push to `main`, that guarantee comes from the
@@ -559,6 +559,115 @@ all X for a given Y" queries, since there are no JOINs. A GSI on
     and position, tapping a 0-player team showed "No players added
     yet", and closing worked cleanly with no console errors either
     way.
+
+- Monitoring and automated remediation (issue #1). 15 CloudWatch alarms
+  in `template.yaml`, all publishing to the same `AlertsTopic` I set up
+  for the budget: one error alarm per Lambda, one region-wide Lambda
+  throttle alarm, read and write throttle alarms on the three DynamoDB
+  tables that are actually used, an API Gateway 5XX alarm, and a traffic
+  spike alarm. Plus a `sports-day` dashboard.
+  - The thing I only spotted reading my own code: every Lambda catches
+    its errors and returns a 500 response, so the Lambda `Errors` metric
+    stays at 0 even when something's properly broken. The API Gateway
+    5XX alarm is what catches those, so I needed both.
+  - The tables are on-demand, so there's no provisioned throughput to
+    alarm on. Throttle events are the signal instead.
+  - Remediation: if the API gets more than 3000 requests in 5 minutes
+    (about 10 a second, far more than a family tournament would ever
+    send), a Lambda drops the stage's throttle from 50 to 5 requests a
+    second and emails me. When the alarm clears it puts the limits back
+    by itself. Alarms can't invoke a Lambda directly, so an EventBridge
+    rule on the alarm's state change sits in between. The Lambda has its
+    own IAM role scoped to updating that one stage and publishing to the
+    topic, not the shared one the other functions use.
+  - To go with that I set a baseline throttle (50 a second, burst 100) on
+    the stage in CloudFormation, so there's a "normal" to go back to.
+  - Tested by forcing the alarm state with `set-alarm-state`: the stage
+    went from 50/100 to 5/10 in about 20 seconds and back again when I
+    cleared it, and the site kept returning 200s. I haven't done a real
+    load test.
+  - Cost: 15 alarms, the first 10 are free, so about $0.50 a month.
+
+- Backup and restore (issue #2). Switched on point-in-time recovery and
+  deletion protection for all four tables in `template.yaml`, wrote a
+  step-by-step runbook (`docs/dr-runbook.md`), then actually broke
+  something to prove it works. I did it on a throwaway table, not the real
+  ones: wrote 5 items, deleted one, overwrote another with garbage, then
+  followed the runbook. Everything was back and correct in 509 seconds
+  (about 8.5 minutes).
+  - The thing I didn't expect: PITR runs about 5 minutes behind real
+    time, so I couldn't restore to "30 seconds ago". Most of the 509
+    seconds (4m46s) was waiting for it to catch up, then about 3m40s for
+    the restore itself and 2 seconds to copy the two items back. If you
+    notice a problem later than 5 minutes after it happened you don't
+    wait at all.
+  - A restore never overwrites the live table, it builds a new one. So
+    the recovery is "restore to a side table, copy the good items back".
+    I tested copying a few items and copying a whole table (on two more
+    throwaway tables) so the runbook only has commands I've run.
+  - What I haven't tested, and said so in the runbook: restoring a table
+    that was deleted completely. I don't know if the PITR history survives
+    that, so rather than guess I turned on deletion protection to make it
+    hard to get there. Cognito users aren't backed up at all either.
+
+- Security review (issue #4). Wrote it up in `docs/security-review.md` and
+  `docs/IAM.md`. The things I changed:
+  - The six API Lambdas shared one role that could get, put, update,
+    delete, query and scan every table, so even the public read endpoints
+    could have deleted data. Now each function has its own role with only
+    the exact calls it makes (`PutItem` on one table, `Scan` on another,
+    `Query` on one index). I read every handler to work out what each one
+    really needs instead of guessing. I also replaced the managed logging
+    policy, which can write logs anywhere in the account, with one for
+    each function's own log group.
+  - Refresh tokens lasted 30 days and the frontend never uses them, so I
+    cut that to 1 day. Added AWS's managed security headers policy to
+    CloudFront too.
+  - I scanned the repo and its whole history for secrets. Nothing real,
+    the only hits were variable names like `const password`. Nothing
+    needs moving to Secrets Manager.
+  - Things I found and left: the admin IAM user has full admin, one
+    long-lived key and no MFA (it's what I deploy with, so I didn't want
+    to swap it out mid-project, but I'd move to my SSO login). And MFA
+    can't be turned on, because the login form doesn't handle the MFA
+    challenge, so a captain who enrolled would get locked out.
+
+- CI/CD and the audit (issue #3).
+  - New `ci.yml` runs on pull requests: lints and builds the frontend,
+    syntax-checks the Lambdas, and runs `cfn-lint` on the template. It has
+    no AWS credentials at all, so a PR can't touch the live account.
+    Documented the pipeline in the README (there was a link to a "CI/CD"
+    section that didn't exist).
+  - I caught three real problems along the way. First, the deploy role's
+    permissions only covered the original resources, so CI would have
+    failed on the alarms, rule, topic and budget. It only looked fine
+    because I'd deployed those by hand first, so CI found nothing to
+    change. I rebuilt the policy, tested it with the IAM policy simulator
+    (21 checks, including that it can't edit its own role), and put a copy
+    in `bootstrap/`. Second, the template grew past 51,200 bytes, which is
+    the most CloudFormation takes inline, so `deploy` needed `--s3-bucket`.
+    Third, my own `cfn-lint` command was wrong (`--ignore-checks` eats the
+    file name after it), so it was linting nothing and passing. I only
+    noticed because I planted a typo to check the linter would fail, and
+    it didn't.
+  - The audit: I looked for anything created outside CloudFormation by
+    listing every service the project uses and checking tagged resources
+    against the stack. The only things are the deploy role, the OIDC
+    provider, the artifacts bucket, the admin user, the activated cost tag
+    and the Cognito users. They're all in `bootstrap/README.md` with the
+    reason each one is outside the stack. "State stored remotely" doesn't
+    apply, since CloudFormation keeps the stack state itself.
+
+- Networking and content delivery (issue #5).
+  - Cache: `index.html` used to get the same one-day cache as the JS. Now
+    `/assets/*` (hashed filenames) keeps the long-lived managed policy,
+    and everything else gets a custom 60 second one, so even a missed
+    invalidation self-heals within a minute.
+  - API throttling is now in the template (50 a second by default, 5 a
+    second on the three write routes) and not just the remediation Lambda
+    adjusting it. Wrote `docs/NETWORKING.md` with the reasoning for not
+    putting the Lambdas in a VPC, including what I give up, and a diagram
+    of the traffic flow (`docs/images/traffic-flow.svg`).
 
 ## Next steps
 - Once captains are chosen, update each team's `name` (same `teamId`,

@@ -1,0 +1,148 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CloudFormationStack",
+      "Effect": "Allow",
+      "Action": "cloudformation:*",
+      "Resource": "arn:aws:cloudformation:eu-west-2:<ACCOUNT_ID>:stack/sports-day/*"
+    },
+    {
+      "Sid": "DynamoDbTables",
+      "Effect": "Allow",
+      "Action": "dynamodb:*",
+      "Resource": [
+        "arn:aws:dynamodb:eu-west-2:<ACCOUNT_ID>:table/Players",
+        "arn:aws:dynamodb:eu-west-2:<ACCOUNT_ID>:table/Players/index/*",
+        "arn:aws:dynamodb:eu-west-2:<ACCOUNT_ID>:table/Team",
+        "arn:aws:dynamodb:eu-west-2:<ACCOUNT_ID>:table/Team/index/*",
+        "arn:aws:dynamodb:eu-west-2:<ACCOUNT_ID>:table/Match",
+        "arn:aws:dynamodb:eu-west-2:<ACCOUNT_ID>:table/Match/index/*",
+        "arn:aws:dynamodb:eu-west-2:<ACCOUNT_ID>:table/ScoreEvent",
+        "arn:aws:dynamodb:eu-west-2:<ACCOUNT_ID>:table/ScoreEvent/index/*"
+      ]
+    },
+    {
+      "Sid": "LambdaFunctions",
+      "Effect": "Allow",
+      "Action": "lambda:*",
+      "Resource": "arn:aws:lambda:eu-west-2:<ACCOUNT_ID>:function:sports-day-*"
+    },
+    {
+      "Sid": "LambdaExecutionRoleManagement",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetRole",
+        "iam:PassRole",
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:GetRolePolicy",
+        "iam:ListRolePolicies",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:ListAttachedRolePolicies",
+        "iam:TagRole",
+        "iam:UntagRole"
+      ],
+      "Resource": [
+        "arn:aws:iam::<ACCOUNT_ID>:role/sports-day-fn-*",
+        "arn:aws:iam::<ACCOUNT_ID>:role/sports-day-remediation-role",
+        "arn:aws:iam::<ACCOUNT_ID>:role/sports-day-lambda-role"
+      ]
+    },
+    {
+      "Sid": "S3ArtifactsBucket",
+      "Effect": "Allow",
+      "Action": "s3:*",
+      "Resource": [
+        "arn:aws:s3:::sports-day-cfn-artifacts-<ACCOUNT_ID>",
+        "arn:aws:s3:::sports-day-cfn-artifacts-<ACCOUNT_ID>/*"
+      ]
+    },
+    {
+      "Sid": "S3SiteBucket",
+      "Effect": "Allow",
+      "Action": "s3:*",
+      "Resource": [
+        "arn:aws:s3:::sports-day-sitebucket-qaduylz8wh7i",
+        "arn:aws:s3:::sports-day-sitebucket-qaduylz8wh7i/*"
+      ]
+    },
+    {
+      "Sid": "ApiGatewayManagement",
+      "Effect": "Allow",
+      "Action": "apigateway:*",
+      "Resource": [
+        "arn:aws:apigateway:eu-west-2::/restapis*",
+        "arn:aws:apigateway:eu-west-2::/tags/*"
+      ]
+    },
+    {
+      "Sid": "CognitoManagement",
+      "Effect": "Allow",
+      "Action": "cognito-idp:*",
+      "Resource": "arn:aws:cognito-idp:eu-west-2:<ACCOUNT_ID>:userpool/*"
+    },
+    {
+      "Sid": "CloudFrontManagement",
+      "Effect": "Allow",
+      "Action": "cloudfront:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "CloudWatchAlarmsAndDashboard",
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:PutMetricAlarm",
+        "cloudwatch:DeleteAlarms",
+        "cloudwatch:TagResource",
+        "cloudwatch:UntagResource",
+        "cloudwatch:ListTagsForResource",
+        "cloudwatch:PutDashboard",
+        "cloudwatch:DeleteDashboards",
+        "cloudwatch:GetDashboard"
+      ],
+      "Resource": [
+        "arn:aws:cloudwatch:eu-west-2:<ACCOUNT_ID>:alarm:sports-day-*",
+        "arn:aws:cloudwatch::<ACCOUNT_ID>:dashboard/sports-day"
+      ]
+    },
+    {
+      "Sid": "CloudWatchDescribe",
+      "Effect": "Allow",
+      "Action": "cloudwatch:DescribeAlarms",
+      "Resource": "*"
+    },
+    {
+      "Sid": "EventBridgeRemediationRule",
+      "Effect": "Allow",
+      "Action": [
+        "events:PutRule",
+        "events:DeleteRule",
+        "events:DescribeRule",
+        "events:EnableRule",
+        "events:DisableRule",
+        "events:PutTargets",
+        "events:RemoveTargets",
+        "events:ListTargetsByRule",
+        "events:TagResource",
+        "events:UntagResource"
+      ],
+      "Resource": "arn:aws:events:eu-west-2:<ACCOUNT_ID>:rule/sports-day-*"
+    },
+    {
+      "Sid": "AlertsTopic",
+      "Effect": "Allow",
+      "Action": "sns:*",
+      "Resource": "arn:aws:sns:eu-west-2:<ACCOUNT_ID>:sports-day-alerts"
+    },
+    {
+      "Sid": "CostBudget",
+      "Effect": "Allow",
+      "Action": "budgets:*",
+      "Resource": "arn:aws:budgets::<ACCOUNT_ID>:budget/family-reunion-sports-day-monthly"
+    }
+  ]
+}
