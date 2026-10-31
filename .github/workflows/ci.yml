@@ -4,14 +4,12 @@ name: CI
 # credentials at all: it only lints, type-checks and builds, so nothing a
 # PR does here can touch the live account. Deploying is deploy.yml's job,
 # and only after a merge to main.
+# No path filter on purpose: these checks are required before merging, and
+# a required check that never starts (because only docs changed) leaves the
+# pull request stuck waiting. They only take about 15 seconds anyway.
 on:
   pull_request:
     branches: [main]
-    paths:
-      - "cloudformation/**"
-      - "lambda/**"
-      - "frontend/**"
-      - ".github/workflows/**"
   workflow_dispatch: {}
 
 permissions:
